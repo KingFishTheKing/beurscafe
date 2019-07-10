@@ -1,0 +1,31 @@
+.buttons{
+    display:inline-block;
+    height:100%;
+    width:100%;
+    color:white;
+    font-size:2.5rem;
+    font-weight: bold;
+    text-align:center;
+    background-color:#f5b042;
+}
+.table{
+    table-layout:fixed;
+}
+.productList{
+    /*order:0*/
+}
+.cart{
+    /*order:1;*/
+    border-left: #007bff 0.1rem solid;
+    border-bottom:none
+}
+@media screen and (max-width:992px){
+    .productList{
+        /*order:1*/
+    }
+    .cart{
+        /*order:0;*/
+        border-bottom: #007bff 0.1rem solid;
+        border-left:none;
+    }
+}
