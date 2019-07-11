@@ -44,8 +44,17 @@ export default class Main extends React.Component{
             })
         );
 
-        let command = new WebSocket('ws://localhost:3000/input');
-        let viewer = new WebSocket('ws://localhost:3000/viewer');
+        //this.command = new WebSocket('ws://localhost:3000/input');
+        this.viewer = new WebSocket('ws://localhost:3000/');
+        this.viewer.onopen = (e) => {
+            this.viewer.send('updateeee')
+        }
+        this.viewer.addEventListener('message', (msg) => {
+            console.log(msg.data)
+        })
+    }
+    componentWillUnmount(){
+        this.viewer.close()
     }
     render(){
         return(

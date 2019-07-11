@@ -12,42 +12,47 @@ dotenv.config();
 let config = null;
 let started = false;
 let timer = null;
-let connections = 0;
+let connections = [];
+
+const removeSocket = (socket) => {
+    connections = connections.filter(conn => {
+        return (conn === socket) ? false : true
+    });
+    if (connections.length === 0){
+        timer = null;
+        started = false;
+    }
+}
 
 //Websocket server
-app.ws('/input', (ws, res) => {
-    ws.on('connection', () => {
-        connections = connections++;
-    });
-    ws.on('disconnect', () => {
-        if (connections === 0){
-            timer = null;
-            started = false;
-        }
-    });
-    ws.on('message', msg => {
-        console.log(msg)
-    });
-});
-app.ws('/viewer', (ws, res) => {
-    ws.on('connection', () => {
-        connections = connections++;
-    });
-    ws.on('disconnect', () => {
-        if (connections === 0){
-            timer = null;
-            started = false;
-        }
-    });
+app.ws('/', (ws, res) => {
+    connections.push(ws);
     if (!started && config.refreshInterval !== 0){
-        timer = setInterval(()=>{
-            ws.send(JSON.stringify({
-                update: 'bla'
-            }))
+        timer = setInterval(()=> {
+            let date = Date.now();
+            connections.forEach(socket => 
+                {
+                    socket.send(date)
+            })
         }, (config.refreshInterval * 1000));
         started = true;
     }
-})
+    ws.on('message', msg => {
+        if (config.refreshInterval === 0){
+            let date = Date.now();
+            connections.forEach(socket => 
+                {
+                    socket.send(date)
+            })
+        }
+    });
+    ws.on('close', () => {
+        removeSocket(ws);
+    });
+    ws.on('error', () => {
+        removeSocket(ws);
+    });
+});
 
 //Static resources
 app.use(express.static(path.join(__dirname, 'build')));
