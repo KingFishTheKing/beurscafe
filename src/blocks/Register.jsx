@@ -23,6 +23,7 @@ export class ProductDisplay extends React.Component{
         this.state = {
             amount : this.props.amount,
             currentPrice: this.props.currentPrice,
+            stock: this.props.stock,
             hasUpdated: true
         }
         this.plusOne = this.plusOne.bind(this);
@@ -40,15 +41,19 @@ export class ProductDisplay extends React.Component{
         else{
             this.setState({
                 amount: this.state.amount-1,
+                stock: this.state.stock+1,
                 hasUpdated: false
             });
         }
     }
     plusOne(){
-        this.setState({
-            amount: this.state.amount+1,
-            hasUpdated: false
-        });
+        if (this.state.amount < this.state.stock){
+            this.setState({
+                amount: this.state.amount+1,
+                stock: this.state.stock-1,
+                hasUpdated: false
+            });
+        }
     }
     componentDidUpdate(){
         if (!this.state.hasUpdated){
@@ -61,7 +66,8 @@ export class ProductDisplay extends React.Component{
     componentWillReceiveProps(nextProps){
         this.setState({
             amount: nextProps.amount,
-            currentPrice: nextProps.currentPrice
+            currentPrice: nextProps.currentPrice,
+            stock: nextProps.stock
         })
     }
     render(){
@@ -73,8 +79,10 @@ export class ProductDisplay extends React.Component{
                             <b>
                                 {this.props.name} 
                             </b>
-                            € {this.props.currentPrice}
+                            € {this.state.currentPrice}
+                            <small className={this.state.stock < 30 ? "text-danger" : "text-muted"}>(stock: {this.state.stock})</small>
                         </div>
+
                         <div className="row mb-4">
                             <div className="col-12 d-flex justify-content-center">
                                 {this.props.display ? <ImageContainer className="col-12" source={`${process.env.NODE_ENV === "development" ? 'http://localhost:3000' : ''}/image/${this.props.display}`} /> : null}
@@ -163,7 +171,26 @@ export default class Register extends React.Component{
 
     }
     done(){
-        //Flush to server and reset
+        let ret = this.state.total.map((v, i) => {
+                return {
+                    "id": i,
+                    "db_id": this.props.products[i]._id,
+                    "quantity": v,
+                    "readAbleName": this.props.products[i].name,
+                    "currentPrice": this.props.products[i].currentPrice,
+                    "currentStock": this.props.products[i].stock - v,
+                }
+            }
+        ).filter((v) => {
+            return v.quantity !== 0
+        })
+        ret = {
+            "type": "updatePrices",
+            "data": ret
+        };
+        this.props.ws.send(JSON.stringify(ret));
+        this.reset();
+        this.props.updateStatus('Sending updates to server...', 'bg-warning text-white', false)
     }
     componentWillMount(){
     }

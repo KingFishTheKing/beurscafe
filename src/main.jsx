@@ -6,6 +6,7 @@ import Register from './blocks/Register';
 import Settings from './blocks/Settings';
 import Products from './blocks/Products';
 import Loader from './blocks/Loader';
+import Statusbar from './Statusbar';
 
 export default class Main extends React.Component{
     constructor(props){
@@ -13,9 +14,66 @@ export default class Main extends React.Component{
         this.state = {
             settings: {},
             products: {},
-            loading: ''
+            loading: '',
+            statusbar: null
         }
         this.URL = null;
+    }
+    connect(server){
+        this.ws = new WebSocket(server);
+        this.ws.onopen = (e) => {
+            this.setState({
+                statusbar: {
+                    content: 'Connected to server',
+                    pClass: "bg-success text-light"
+                } 
+            });
+            setTimeout(() => {
+                this.setState({
+                    statusbar : null
+                })
+            }, 3000)
+        }
+        this.ws.addEventListener('message', (msg) => {
+            msg = JSON.parse(msg.data)
+            switch(msg.type){
+                case 'updateStock':
+                    this.setState(prevState => ({
+                        products: msg.data,
+                    }));
+                    this.updateStatus('Stock updated', 'bg-success text-white');
+                    break;
+                default:
+                    break;
+            }
+        });
+        this.ws.addEventListener('close',  () => {
+            this.updateStatus(`Disconnected :'( Hold on! Trying to reconnect...`, 'bg-danger text-white', false)
+            setTimeout(() => {
+                this.connect(server);
+            }, 2000)
+        })
+        this.ws.onerror = () => {
+            this.updateStatus(`Disconnected :'( Hold on! Trying to reconnect...`, 'bg-danger text-white', false)
+            setTimeout(() => {
+                this.connect(server);
+            }, 2000)
+        }
+    }
+    updateStatus(content, pClass, timeout=true){
+        this.setState({
+            statusbar: {
+                content: content,
+                pClass: pClass
+            }
+        })
+        if(timeout){
+            setTimeout(() => {
+                this.setState({
+                    statusbar: null
+                })
+            }, 3000)
+        }
     }
     componentWillMount(){
         document.body.classList.add('container-fluid');
@@ -43,15 +101,7 @@ export default class Main extends React.Component{
                 loading: false
             })
         );
-
-        //this.command = new WebSocket('ws://localhost:3000/input');
-        this.viewer = new WebSocket('ws://localhost:3000/');
-        this.viewer.onopen = (e) => {
-            this.viewer.send('updateeee')
-        }
-        this.viewer.addEventListener('message', (msg) => {
-            console.log(msg.data)
-        })
+        this.connect('ws://localhost:3000/');
     }
     componentWillUnmount(){
         this.viewer.close()
@@ -70,7 +120,7 @@ export default class Main extends React.Component{
                                 to="/register" />
                             <Route 
                                 path="/register"
-                                render={() => <Register id={this.state.settings.id} products={this.state.products} />} />
+                                render={() => <Register ws={this.ws} updateStatus={this.updateStatus.bind(this)}  id={this.state.settings.id} products={this.state.products} />} />
                             <Route 
                                 path="/settings" 
                                 //state={this.state}
@@ -82,6 +132,7 @@ export default class Main extends React.Component{
                         </React.Fragment>
                     }
                 </Router>
+                {this.state.statusbar ? <Statusbar content={this.state.statusbar.content} pClass={this.state.statusbar.pClass}   /> : null}
             </React.Fragment>
         )
     }

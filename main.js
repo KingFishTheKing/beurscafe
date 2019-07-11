@@ -23,7 +23,72 @@ const removeSocket = (socket) => {
         started = false;
     }
 }
-
+const InsertIntoDb = async (input) => {
+    let now = Date.now();
+    return new Promise((resolve, reject) => {
+        mongo.connect(process.env.MONGODB_URL, {useNewUrlParser: true}, (err, db) => {
+            if (!err){
+                let dbo = db.db('beurscafe');
+                dbo
+                .collection('history')
+                .insertMany(
+                    [
+                        ...input.map(i => { 
+                            return {
+                                timeStamp: now, 
+                                update: i
+                            }
+                        })
+                    ],
+                    (err, data) => {
+                        if (err) reject(err)
+                        else resolve(data.ops)
+                    }
+                )        
+            }
+            else{
+                reject(err);
+            }
+        })
+    })
+}
+const updateStock = async (updates) => {
+    return new Promise((resolve, reject) => {
+        mongo.connect(process.env.MONGODB_URL, {useNewUrlParser: true}, (err, db) => {
+            if (!err){
+                let dbo = db.db('beurscafe').collection('products').initializeUnorderedBulkOp();
+                let ObjectId = require('mongodb').ObjectId;
+                updates.forEach(u => {
+                    u = u.update
+                    dbo
+                        .find({
+                            "_id": new ObjectId(u.db_id)
+                        })
+                        .updateOne(
+                            {
+                                $set: {
+                                    stock: u.currentStock
+                                }
+                            }
+                        );
+                })
+                dbo.execute().then((data, err) => {
+                    if (err) reject(err)
+                    else if (data.nModified !== updates.length){
+                        reject('Failed to update all')
+                    }
+                    else{
+                        resolve(data);
+                    }
+                })
+            }
+            else{
+                reject(err);
+            }
+            db.close();
+        })
+    })
+}
 //Websocket server
 app.ws('/', (ws, res) => {
     connections.push(ws);
@@ -38,13 +103,59 @@ app.ws('/', (ws, res) => {
         started = true;
     }
     ws.on('message', msg => {
-        if (config.refreshInterval === 0){
-            let date = Date.now();
-            connections.forEach(socket => 
-                {
-                    socket.send(date)
-            })
+        msg = JSON.parse(msg);
+        switch(msg.type){
+            case 'updatePrices':
+                InsertIntoDb(msg.data).then((data, err) => {
+                    if (err) {console.log(err); ws.send(JSON.stringify({
+                        'Error': err
+                    }))}
+                    else{
+                        updateStock(data).then((data, err) => {
+                            if (err) {
+                                console.log(err); 
+                                ws.send(
+                                    JSON.stringify(
+                                        {
+                                            'Error': err
+                                        }
+                                    )
+                                )
+                            }
+                            else{
+                                let ret = {
+                                    "type": (config.refreshInterval === 0) ? 'update' : 'updateStock',
+                                    "data": null
+                                }
+                                mongo.connect(process.env.MONGODB_URL, {useNewUrlParser: true}, (err, db) => {
+                                    let dbo = db.db('beurscafe').collection('products');
+                                    dbo.find({}).toArray((err, results) => {
+                                        if (!err){
+                                            ret.data = results;
+                                            ret = JSON.stringify(ret);
+                                            connections.forEach(socket => {
+                                                socket.send(ret)
+                                            })
+                                        }
+                                    })
+                                })
+                            }
+                        })
+                    }
+                    
+                    /*if (config.refreshInterval === 0){
+                        let date = Date.now();
+                        connections.forEach(socket => 
+                            {
+                                socket.send(date)
+                        })
+                    }*/
+                });
+            break;
+            default:
+                return null;
         }
+        
     });
     ws.on('close', () => {
         removeSocket(ws);
