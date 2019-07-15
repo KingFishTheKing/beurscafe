@@ -2,17 +2,20 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const mongo = require('mongodb').MongoClient;
+var PouchDB = require('pouchdb');
 const app = express();
 require('express-ws')(app);
 const dotenv = require('dotenv');
 dotenv.config();
+const db = new PouchDB('server/db/beurscafe-'+process.env.APP_ID);
 
 //Global variables
 let config = null;
 let started = false;
 let timer = null;
 let connections = [];
+let lastUpdate = 0;
+
 
 const removeSocket = (socket) => {
     connections = connections.filter(conn => {
@@ -24,69 +27,18 @@ const removeSocket = (socket) => {
     }
 }
 const InsertIntoDb = async (input) => {
-    let now = Date.now();
     return new Promise((resolve, reject) => {
-        mongo.connect(process.env.MONGODB_URL, {useNewUrlParser: true}, (err, db) => {
-            if (!err){
-                let dbo = db.db('beurscafe');
-                dbo
-                .collection('history')
-                .insertMany(
-                    [
-                        ...input.map(i => { 
-                            return {
-                                timeStamp: now, 
-                                update: i
-                            }
-                        })
-                    ],
-                    (err, data) => {
-                        if (err) reject(err)
-                        else resolve(data.ops)
-                    }
-                )        
-            }
-            else{
-                reject(err);
-            }
-        })
+
     })
 }
 const updateStock = async (updates) => {
+   return new Promise((resolve, reject) => {
+        
+    })
+}
+const updateProducts = async () => {
     return new Promise((resolve, reject) => {
-        mongo.connect(process.env.MONGODB_URL, {useNewUrlParser: true}, (err, db) => {
-            if (!err){
-                let dbo = db.db('beurscafe').collection('products').initializeUnorderedBulkOp();
-                let ObjectId = require('mongodb').ObjectId;
-                updates.forEach(u => {
-                    u = u.update
-                    dbo
-                        .find({
-                            "_id": new ObjectId(u.db_id)
-                        })
-                        .updateOne(
-                            {
-                                $set: {
-                                    stock: u.currentStock
-                                }
-                            }
-                        );
-                })
-                dbo.execute().then((data, err) => {
-                    if (err) reject(err)
-                    else if (data.nModified !== updates.length){
-                        reject('Failed to update all')
-                    }
-                    else{
-                        resolve(data);
-                    }
-                })
-            }
-            else{
-                reject(err);
-            }
-            db.close();
-        })
+        
     })
 }
 //Websocket server
@@ -94,63 +46,23 @@ app.ws('/', (ws, res) => {
     connections.push(ws);
     if (!started && config.refreshInterval !== 0){
         timer = setInterval(()=> {
-            let date = Date.now();
-            connections.forEach(socket => 
-                {
-                    socket.send(date)
-            })
+            updateProducts().then(
+                data => connections.forEach(socket => 
+                    {
+                        socket.send(data)
+                })
+            )
         }, (config.refreshInterval * 1000));
         started = true;
     }
     ws.on('message', msg => {
         msg = JSON.parse(msg);
         switch(msg.type){
-            case 'updatePrices':
-                InsertIntoDb(msg.data).then((data, err) => {
-                    if (err) {console.log(err); ws.send(JSON.stringify({
-                        'Error': err
-                    }))}
-                    else{
-                        updateStock(data).then((data, err) => {
-                            if (err) {
-                                console.log(err); 
-                                ws.send(
-                                    JSON.stringify(
-                                        {
-                                            'Error': err
-                                        }
-                                    )
-                                )
-                            }
-                            else{
-                                let ret = {
-                                    "type": (config.refreshInterval === 0) ? 'update' : 'updateStock',
-                                    "data": null
-                                }
-                                mongo.connect(process.env.MONGODB_URL, {useNewUrlParser: true}, (err, db) => {
-                                    let dbo = db.db('beurscafe').collection('products');
-                                    dbo.find({}).toArray((err, results) => {
-                                        if (!err){
-                                            ret.data = results;
-                                            ret = JSON.stringify(ret);
-                                            connections.forEach(socket => {
-                                                socket.send(ret)
-                                            })
-                                        }
-                                    })
-                                })
-                            }
-                        })
-                    }
-                    
-                    /*if (config.refreshInterval === 0){
-                        let date = Date.now();
-                        connections.forEach(socket => 
-                            {
-                                socket.send(date)
-                        })
-                    }*/
-                });
+            case 'updatePrice':
+                
+            break;
+            case 'requestUpdate':
+
             break;
             default:
                 return null;
@@ -198,35 +110,8 @@ app.get('/image/:name', (req, res) => {
 
 //Api server
 app.get('/api/settings/', cors(), (req, res) => {
-    mongo.connect(process.env.MONGODB_URL, {useNewUrlParser: true}, (err, db) => {
-        if (err) res.status(500).send('Erro accessing data')
-        else {
-            let dbo = db.db('beurscafe');
-            var ObjectId = require('mongodb').ObjectId;
-            dbo.collection('settings').findOne(
-                new ObjectId(process.env.APP_ID)
-                , 
-                (err, results) => {
-                    if (err) res.status(500).send('Data unavaible')
-                    else res.status(200).send(JSON.stringify(results))
-                    db.close()
-                }
-            )
-        }
-    })
 });
 app.get('/api/products', cors(), (req, res) => {
-    mongo.connect(process.env.MONGODB_URL, {useNewUrlParser: true}, (err, db) => {
-        if (err) res.status(500).send('Erro accessing data')
-        else {
-            let dbo = db.db('beurscafe');
-            dbo.collection('products').find({"memberOf": {$eq: process.env.APP_ID}}).toArray((err, results) => {
-                if (err) res.status(500).send('Data unavaible')
-                else res.status(200).send(JSON.stringify(results))
-                db.close()
-            })
-        }
-    })
 });
 
 //Catchall
@@ -237,29 +122,7 @@ app.get('*', (req, res) => {
 //startup
 const loadConfig = () => {
     return new Promise((resolve, reject) => {
-        mongo.connect(process.env.MONGODB_URL, {useNewUrlParser: true}, (err, db) => {
-            if (!err){
-                let dbo = db.db('beurscafe');
-                let ObjectId = require('mongodb').ObjectId;
-                dbo
-                .collection('settings')
-                .findOne(
-                    new ObjectId(process.env.APP_ID), 
-                    (err, results) => {
-                        if (err){
-                            reject(err)
-                        }
-                        else{
-                            resolve(results);
-                        }
-                        db.close();  
-                    }
-                )        
-            }
-            else{
-                reject(err)
-            }
-        })
+
     })
 }
 const startup = async () => {

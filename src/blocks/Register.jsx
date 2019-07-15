@@ -192,12 +192,18 @@ export default class Register extends React.Component{
         this.reset();
         this.props.updateStatus('Sending updates to server...', 'bg-warning text-white', false)
     }
+    getUpdate(){
+        this.props.ws.send(JSON.stringify({
+            "type":"getUpdate"
+        }))
+    }
     componentWillMount(){
     }
     render(){
         return(
             <React.Fragment>
                 <div className="row">
+                <button onClick={this.getUpdate.bind(this)}>Update</button>
                     <Cart products={this.props.products}  total={this.state.total} reset={this.reset} done={this.done} />
                     <div className={`row productList mr-auto col-12 col-lg-10`}>
                         {Object.entries(this.props.products).map((p, i) => <ProductDisplay key={i} productId={p[0]} {...p[1]} amount={this.state.total[p[0]] || 0} id={this.props.id} setInput={this.setInput.bind(this)} />)}

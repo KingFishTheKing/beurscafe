@@ -10,7 +10,7 @@
     "express": "^4.17.1",
     "express-ws": "^4.0.0",
     "fs": "0.0.1-security",
-    "mongodb": "^3.2.7",
+    "pouchdb": "^7.1.1",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "react-router": "^5.0.1",

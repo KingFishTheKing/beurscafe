@@ -18,6 +18,7 @@ export default class Main extends React.Component{
             statusbar: null
         }
         this.URL = null;
+        this.ws = null;
     }
     connect(server){
         this.ws = new WebSocket(server);
@@ -104,7 +105,7 @@ export default class Main extends React.Component{
         this.connect('ws://localhost:3000/');
     }
     componentWillUnmount(){
-        this.viewer.close()
+        this.viewer.close();
     }
     render(){
         return(
