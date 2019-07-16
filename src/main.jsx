@@ -12,14 +12,24 @@ export default class Main extends React.Component{
     constructor(props){
         super(props);
         this.state = {
-            settings: {},
+            settings: {
+                id: process.env.APP_ID,
+                name: 'default',
+                increments: 0.05,
+                round: 0.05,
+                sign: '€',
+                refreshInterval: 180
+            },
             products: {},
             loading: '',
             statusbar: null
         }
         this.URL = null;
         this.ws = null;
+        this.updateStatus = this.updateStatus.bind(this);
+        this.updateSettings = this.updateSettings.bind(this);
     }
+    //Helper functions
     connect(server){
         this.ws = new WebSocket(server);
         this.ws.onopen = (e) => {
@@ -76,6 +86,31 @@ export default class Main extends React.Component{
             }, 3000)
         }
     }
+    updateSettings(ret){
+        this.setState({
+            settings: ret
+        }, () => {
+            this.saveSettings().then((ok, err) => {
+                if (err) this.updateStatus(`Failed to save configuration => ${err}`, 'bg-warning text-white', false);
+                else this.updateStatus('Saved configuration', 'bg-success text-white');
+            })
+            
+        })
+    }
+    saveSettings(){
+        return new Promise((resolve, reject) => {
+            fetch('http://localhost:3000/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(this.state.settings)
+            }).then(
+                resp => resp.status === 200 ? resolve(resp.statusText) : reject(resp.status)
+            ).catch(err => reject(err))
+        })
+    }
+    //lifecycle
     componentWillMount(){
         document.body.classList.add('container-fluid');
         document.title = 'Beurscafe';
@@ -86,7 +121,6 @@ export default class Main extends React.Component{
             loading: 'Loading Settings'
         })
         fetch(`http://localhost:3000/api/settings`).then(
-            
             response => response.json()
         ).then(
             json => {this.setState({
@@ -101,7 +135,7 @@ export default class Main extends React.Component{
                 products: json,
                 loading: false
             })
-        );
+        )
         this.connect('ws://localhost:3000/');
     }
     componentWillUnmount(){
@@ -121,15 +155,13 @@ export default class Main extends React.Component{
                                 to="/register" />
                             <Route 
                                 path="/register"
-                                render={() => <Register ws={this.ws} updateStatus={this.updateStatus.bind(this)}  id={this.state.settings.id} products={this.state.products} />} />
-                            <Route 
-                                path="/settings" 
-                                //state={this.state}
-                                component={Settings} />
+                                render={() => <Register ws={this.ws} updateStatus={this.updateStatus}  id={this.state.settings.id} products={this.state.products} />} />
                             <Route 
                                 path="/products" 
-                                //state={this.state}
                                 component={Products}  />
+                            <Route 
+                                path="/settings" 
+                                render={() => <Settings {...this.state.settings} updateStatusBar={this.updateStatus} updateSettings={this.updateSettings} />} />
                         </React.Fragment>
                     }
                 </Router>

@@ -1,16 +1,20 @@
 const express = require('express');
+const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
-var PouchDB = require('pouchdb');
-const app = express();
-require('express-ws')(app);
+const PouchDB = require('pouchdb');
 const dotenv = require('dotenv');
+
+const app = express();
+app.search(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json());
+require('express-ws')(app);
 dotenv.config();
 const db = new PouchDB('server/db/beurscafe-'+process.env.APP_ID);
 
 //Global variables
 let config = null;
+let products = null;
 let started = false;
 let timer = null;
 let connections = [];
@@ -110,9 +114,43 @@ app.get('/image/:name', (req, res) => {
 
 //Api server
 app.get('/api/settings/', cors(), (req, res) => {
+    db.get('config')
+        .then(config  => {
+            res
+                .status(200)
+                .send(
+                    JSON.stringify(config.settings)
+                )
+        })
+        .catch(
+            err => {
+                res.status(404).send('Something went wrong')
+            }
+        )
 });
 app.get('/api/products', cors(), (req, res) => {
+    db.get('config')
+        .then(config  => {
+            res
+                .status(200)
+                .send(
+                    JSON.stringify(config.products)
+                )
+        })
+        .catch(
+            err => {
+                res.status(404).send('Something went wrong')
+            }
+        )
 });
+app.options('/settings', cors({
+    origin: '*',
+    optionsSuccessStatus: 200
+}))
+app.post('/settings', cors(), (req, res) => {
+    console.log(req.body)
+    res.status(200).send('received')
+})
 
 //Catchall
 app.get('*', (req, res) => {
@@ -121,8 +159,32 @@ app.get('*', (req, res) => {
 
 //startup
 const loadConfig = () => {
-    return new Promise((resolve, reject) => {
-
+    return new Promise((resolve, reject) => {        
+        db.get('config')
+        .catch((err) => {
+            if (err.status === 404){
+                db.put({
+                    _id : 'config',
+                    settings : {},
+                    products : []
+                }).then(
+                   doc => { return doc}
+                ).catch(
+                    err => reject (err)
+                )
+            }
+            else {
+                reject(err)
+            }
+        }
+        ).then(
+            settings => { 
+                resolve(settings)
+            }
+        )
+        .catch( 
+            err => reject(err)
+        )
     })
 }
 const startup = async () => {
@@ -133,8 +195,9 @@ const startup = async () => {
 startup()
     .then((result) => {
         console.log('config loaded');
-        config = result;
+        config = result.settings;
+        products = result.products
         app.listen(process.env.PORT, () => {
             console.log(`listening at port ${process.env.PORT}`);
         })
-    })
+    }).catch(err => console.log(err))
