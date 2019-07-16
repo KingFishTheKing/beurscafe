@@ -8,7 +8,7 @@ export default class Settings extends React.Component{
             increments: props.increments || 0.05,
             round: props.round || 0.05,
             sign: props.sign || '€',
-            refreshInterval: props.refreshInterval || 180
+            refreshInterval: props.refreshInterval || 180,
         }
         this.updateState = this.updateState.bind(this);
     }
@@ -16,6 +16,7 @@ export default class Settings extends React.Component{
         let s = {};
         s[input.target.name] = input.target.value
         this.setState(s);
+        this.props.updateConfigState(false)
     }
     render(){
         return(
@@ -100,19 +101,20 @@ export default class Settings extends React.Component{
                                 className="btn btn-success" 
                                 onClick={() => {
                                         this.props.updateStatusBar('Saving configuration', 'bg-primary text-white', false);
-                                        this.props.updateSettings(this.state);
+                                        this.props.updateSettings(this.state)
                                     }
                                 }>
                             Save
                         </button>
                         <button type="button"
                                 className="btn btn-warning"
+                                disabled={!this.props.savedConfig}
                                 onClick={() => {
-                                    if (window.confirm('Restarting the server will reset the application, timers and remove any unsaved or in progress transactions since last update\n Are you sure?')){
-                                        console.log('do it!')
+                                    if (window.confirm('Applying settings will restart the server, this will reset the application, timers and remove any unsaved or in progress transactions since last update\nAre you sure?')){
+                                        this.props.restartServer()
                                     }
                                 }}>
-                            Apply settings and restart server
+                            Apply settings
                         </button>
                     </div>
                 </form>

@@ -13,7 +13,6 @@ export default class Main extends React.Component{
         super(props);
         this.state = {
             settings: {
-                id: process.env.APP_ID,
                 name: 'default',
                 increments: 0.05,
                 round: 0.05,
@@ -22,32 +21,47 @@ export default class Main extends React.Component{
             },
             products: {},
             loading: '',
-            statusbar: null
+            statusbar: null,
+            savedConfig: false,
+            isMaster: false
         }
         this.URL = null;
         this.ws = null;
+        localStorage.setItem('app_id', null);
         this.updateStatus = this.updateStatus.bind(this);
         this.updateSettings = this.updateSettings.bind(this);
+        this.configEnableDisable = this.configEnableDisable.bind(this);
+        this.restartServer = this.restartServer.bind(this);
     }
+
     //Helper functions
     connect(server){
         this.ws = new WebSocket(server);
         this.ws.onopen = (e) => {
-            this.setState({
-                statusbar: {
-                    content: 'Connected to server',
-                    pClass: "bg-success text-light"
-                } 
-            });
-            setTimeout(() => {
-                this.setState({
-                    statusbar : null
-                })
-            }, 3000)
+            if (this.ws.readyState === 1){
+                this.ws.send(JSON.stringify({
+                    'type': 'connect',
+                    'data': localStorage.getItem('app_id')
+                }))
+                this.updateStatus('Connected to server', 'bg-success text-light');
+            }
         }
         this.ws.addEventListener('message', (msg) => {
             msg = JSON.parse(msg.data)
             switch(msg.type){
+                case 'master':
+                    if (!!msg.data){
+                        this.setState({
+                            isMaster: true
+                        });
+                        localStorage.setItem('app_id', msg.data)
+                    }
+                    break;
+                case 'updateConfig':
+                    this.setState({
+                        settings: msg.data
+                    })
+                    break;
                 case 'updateStock':
                     this.setState(prevState => ({
                         products: msg.data,
@@ -90,11 +104,14 @@ export default class Main extends React.Component{
         this.setState({
             settings: ret
         }, () => {
-            this.saveSettings().then((ok, err) => {
-                if (err) this.updateStatus(`Failed to save configuration => ${err}`, 'bg-warning text-white', false);
-                else this.updateStatus('Saved configuration', 'bg-success text-white');
+            this.saveSettings().then((success, fail) => {
+                if (fail) {
+                    this.updateStatus(`Server error`, 'bg-warning text-white', false);
+                }
+                else {
+                    this.updateStatus(...success);
+                }
             })
-            
         })
     }
     saveSettings(){
@@ -104,10 +121,39 @@ export default class Main extends React.Component{
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(this.state.settings)
+                body: JSON.stringify({
+                    "satisfy": btoa(localStorage.getItem('app_id')),
+                    "settings": this.state.settings
+                })
             }).then(
-                resp => resp.status === 200 ? resolve(resp.statusText) : reject(resp.status)
-            ).catch(err => reject(err))
+                resp => resp.json()  
+            ).then(
+                data => {
+                    data = JSON.parse(data)
+                    if (data.success){
+                        this.setState({
+                            savedConfig: true
+                        })
+                        resolve(['Saved configuration', 'bg-success text-white'])
+                    } else {
+                        resolve([`Failed to save configuration, ${data.error}`, 'bg-danger text-white', false])
+                    } 
+                }
+            ).catch(err => reject([err, 'bg-warning text-light', false]))
+        })
+    }
+    configEnableDisable(bool){
+        this.setState({
+            savedConfig: bool
+        })
+    }
+    restartServer(){
+        fetch('http://localhost:3000/restartServer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({'satisfy': btoa(localStorage.getItem('app_id'))})
         })
     }
     //lifecycle
@@ -139,13 +185,13 @@ export default class Main extends React.Component{
         this.connect('ws://localhost:3000/');
     }
     componentWillUnmount(){
-        this.viewer.close();
+        //this.viewer.close();
     }
     render(){
         return(
             <React.Fragment>
                 <Router>
-                    <Navigation />
+                    <Navigation brand={this.state.settings.name} role={this.state.isMaster} />
                     {this.state.loading ? 
                         <Loader waitingFor={this.state.loading} /> 
                         :  
@@ -161,7 +207,7 @@ export default class Main extends React.Component{
                                 component={Products}  />
                             <Route 
                                 path="/settings" 
-                                render={() => <Settings {...this.state.settings} updateStatusBar={this.updateStatus} updateSettings={this.updateSettings} />} />
+                                render={() => <Settings {...this.state.settings} savedConfig={this.state.savedConfig} restartServer={this.restartServer} updateConfigState={this.configEnableDisable} updateStatusBar={this.updateStatus} updateSettings={this.updateSettings} />} />
                         </React.Fragment>
                     }
                 </Router>

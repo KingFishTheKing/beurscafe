@@ -6,7 +6,7 @@ const PouchDB = require('pouchdb');
 const dotenv = require('dotenv');
 
 const app = express();
-app.search(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 require('express-ws')(app);
 dotenv.config();
@@ -17,10 +17,18 @@ let config = null;
 let products = null;
 let started = false;
 let timer = null;
+let masterSocket = null;
 let connections = [];
 let lastUpdate = 0;
+let server = null;
 
-
+//Helper functions
+const btoa = (binary) => {
+    return Buffer.from(binary, 'binary').toString('base64') //polyfill vanilla for encoding base64
+}
+const atob = (base64) => {
+    return Buffer.from(base64, 'base64').toString('binary') //polyfill vanilla for decoding base64
+}
 const removeSocket = (socket) => {
     connections = connections.filter(conn => {
         return (conn === socket) ? false : true
@@ -28,6 +36,7 @@ const removeSocket = (socket) => {
     if (connections.length === 0){
         timer = null;
         started = false;
+        masterSocket = null;
     }
 }
 const InsertIntoDb = async (input) => {
@@ -45,9 +54,9 @@ const updateProducts = async () => {
         
     })
 }
+
 //Websocket server
-app.ws('/', (ws, res) => {
-    connections.push(ws);
+app.ws('/', (ws, req) => {
     if (!started && config.refreshInterval !== 0){
         timer = setInterval(()=> {
             updateProducts().then(
@@ -62,6 +71,18 @@ app.ws('/', (ws, res) => {
     ws.on('message', msg => {
         msg = JSON.parse(msg);
         switch(msg.type){
+            case 'connect':
+                connections.push(ws);
+                let resp = {'type': 'master', 'data': false}
+                if (msg.data === process.env.APP_ID || masterSocket === null) {
+                    masterSocket = ws;
+                    resp.data = process.env.APP_ID
+                } 
+                else {
+                   resp.data = false;
+                }
+                ws.send(JSON.stringify(resp))
+                break;
             case 'updatePrice':
                 
             break;
@@ -85,12 +106,13 @@ app.ws('/', (ws, res) => {
 app.use(express.static(path.join(__dirname, 'build')));
 app.use('/static', express.static(path.join(__dirname, 'static')));
 
+app.get('/view', (req, res) => {
+    res.clearCookie('app_id').status(200).end();
+});
+
 //Main server
 app.get('/', (req, res) => {
-    res.status(200).sendFile(path.join(__dirname, 'build', 'index.html'));
-});
-app.get('/register', (req, res) => {
-    res.redirect('/');
+    res.status(200).sendFile(path.join(__dirname, 'build'));
 });
 
 //Image server
@@ -110,7 +132,7 @@ app.get('/image/:name', (req, res) => {
                 res.status(404).send('Image unavaible');
             }   
         })
-})
+});
 
 //Api server
 app.get('/api/settings/', cors(), (req, res) => {
@@ -148,14 +170,55 @@ app.options('/settings', cors({
     optionsSuccessStatus: 200
 }))
 app.post('/settings', cors(), (req, res) => {
-    console.log(req.body)
-    res.status(200).send('received')
-})
+    if (atob(req.body.satisfy) !== process.env.APP_ID) {
+        res.status(200).json(JSON.stringify({success: false, error: 'Only master is allowed to update configs'}))
+        return;
+    }
+    db.get('config').then((config) => {
+        return db.put({
+            _id: 'config',
+            _rev: config._rev,
+            settings: req.body.settings,
+            products: config.products
+        })
+    }).then((resp) => {
+        res.status(200).json(JSON.stringify({success: true}))
+    }).catch((err) => {
+        res.status(200).json(JSON.stringify({success: false, error: err}))
+    })
+});
+app.options('/restartServer', cors({
+    origin: '*',
+    optionsSuccessStatus: 200
+}))
+app.post('/restartServer', cors(), (req, res) => {
+    if (atob(req.body.satisfy) !== process.env.APP_ID) {
+        res.status(401).send()
+        return;
+    }
+    else{
+        server.close();
+        startup.call(this).then((result) => {
+            console.log('config loaded');
+            config = result.settings;
+            server = app.listen(process.env.PORT, () => {
+                console.log(`Reloaded server @ ${process.env.PORT}`);
+                let msg = JSON.stringify({
+                    'type': 'updateConfig',
+                    'data': config
+                })
+                connections.forEach(socket => {
+                    socket.send(msg)
+                })
+            });
+        }).catch(err => console.log(err))
+    }
+});
 
 //Catchall
 app.get('*', (req, res) => {
-    res.redirect('/');
-})
+    res.status(308).redirect('/');
+});
 
 //startup
 const loadConfig = () => {
@@ -170,7 +233,7 @@ const loadConfig = () => {
                 }).then(
                    doc => { return doc}
                 ).catch(
-                    err => reject (err)
+                    err => reject(err)
                 )
             }
             else {
@@ -196,8 +259,9 @@ startup()
     .then((result) => {
         console.log('config loaded');
         config = result.settings;
-        products = result.products
-        app.listen(process.env.PORT, () => {
+        products = result.products;
+        connections = []
+        server = app.listen(process.env.PORT, () => {
             console.log(`listening at port ${process.env.PORT}`);
-        })
+        });
     }).catch(err => console.log(err))
