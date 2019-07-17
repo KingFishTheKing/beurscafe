@@ -22,7 +22,7 @@ export class ProductDisplay extends React.Component{
         super(props);
         this.state = {
             amount : this.props.amount,
-            currentPrice: this.props.currentPrice,
+            startPrice: this.props.startPrice,
             stock: this.props.stock,
             hasUpdated: true
         }
@@ -66,38 +66,43 @@ export class ProductDisplay extends React.Component{
     componentWillReceiveProps(nextProps){
         this.setState({
             amount: nextProps.amount,
-            currentPrice: nextProps.currentPrice,
+            startPrice: nextProps.startPrice,
             stock: nextProps.stock
         })
     }
     render(){
         return(
             <React.Fragment>
-                <div className="col-auto col-sm-6 col-md-4 col-lg-3 mb-2">
-                    <div className="bg-light rounded p-3">
-                        <div className="row mb-4 d-flex justify-content-between p-3">
-                            <b>
-                                {this.props.name} 
-                            </b>
-                            € {this.state.currentPrice}
-                            <small className={this.state.stock < 30 ? "text-danger" : "text-muted"}>(stock: {this.state.stock})</small>
-                        </div>
+            {this.props.enabled === true ? 
+                <React.Fragment>
+                    <div className="col-auto col-sm-6 col-md-4 col-lg-3 mb-2">
+                        <div className="bg-light rounded p-3">
+                            <div className="row mb-4 d-flex justify-content-between p-3">
+                                <b>
+                                    {this.props.name} 
+                                </b>
+                                € {this.state.startPrice}
+                                <small className={this.state.stock < 30 ? "text-danger" : "text-muted"}>(stock: {this.state.stock})</small>
+                            </div>
 
-                        <div className="row mb-4">
-                            <div className="col-12 d-flex justify-content-center">
-                                {this.props.display ? <ImageContainer className="col-12" source={`${process.env.NODE_ENV === "development" ? 'http://localhost:3000' : ''}/image/${this.props.display}`} /> : null}
+                            <div className="row mb-4">
+                                <div className="col-12 d-flex justify-content-center">
+                                    {this.props.display ? <ImageContainer className="col-12" source={`${process.env.NODE_ENV === "development" ? 'http://localhost:3000' : ''}/image/${this.props.display}`} /> : null}
+                                </div>
                             </div>
-                        </div>
-                        <div className="row mb-2">
-                            <div className="col-6">
-                                <p className="buttons minus rounded" onClick={this.minusOne}>-</p>
+                            <div className="row mb-2">
+                                <div className="col-6">
+                                    <p className="buttons minus rounded" onClick={this.minusOne}>-</p>
+                                </div>
+                                <div className="col-6">
+                                    <p className="buttons plus rounded" onClick={this.plusOne}>+</p>
+                                </div>
                             </div>
-                            <div className="col-6">
-                                <p className="buttons plus rounded" onClick={this.plusOne}>+</p>
-                            </div>
-                        </div>
-                    </div>          
-                </div> 
+                        </div>          
+                    </div> 
+                </React.Fragment>
+                : null
+            }
             </React.Fragment>
         )
     }
@@ -125,14 +130,14 @@ export class Cart extends React.Component{
                         {Object.entries(this.state.total).map(a => {
                             return(
                                 <li key={a[0]} className="list-group-item d-flex justify-content-between align-items-start">
-                                    {this.state.products[a[0]].name} <small className="text-muted ml-2">(€{this.state.products[a[0]].currentPrice})</small>
+                                    {this.state.products[a[0]].name} <small className="text-muted ml-2">(€{this.state.products[a[0]].startPrice})</small>
                                     <span className="badge badge-primary badge-pill ml-auto">{a[1]}</span>
                                 </li>)
                         })}
                     </ul>
                     <p className="mt-3 col-12 h3 d-flex justify-content-around text-primary">
                         <span>Total €{Math.round(Object.entries(this.state.total).map(a => {
-                                return this.state.products[a[0]].currentPrice * [a[1]]
+                                return this.state.products[a[0]].startPrice * [a[1]]
                             }).reduce((a, b) => {
                                 return a + b
                             }, 0) * 100) / 100}
@@ -177,7 +182,7 @@ export default class Register extends React.Component{
                     "db_id": this.props.products[i]._id,
                     "quantity": v,
                     "readAbleName": this.props.products[i].name,
-                    "currentPrice": this.props.products[i].currentPrice,
+                    "startPrice": this.props.products[i].startPrice,
                     "currentStock": this.props.products[i].stock - v,
                 }
             }
@@ -203,7 +208,6 @@ export default class Register extends React.Component{
         return(
             <React.Fragment>
                 <div className="row">
-                <button onClick={this.getUpdate.bind(this)}>Update</button>
                     <Cart products={this.props.products}  total={this.state.total} reset={this.reset} done={this.done} />
                     <div className={`row productList mr-auto col-12 col-lg-10`}>
                         {Object.entries(this.props.products).map((p, i) => <ProductDisplay key={i} productId={p[0]} {...p[1]} amount={this.state.total[p[0]] || 0} id={this.props.id} setInput={this.setInput.bind(this)} />)}

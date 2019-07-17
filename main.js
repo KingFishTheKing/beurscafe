@@ -199,7 +199,6 @@ app.post('/product', cors(), (req, res) => {
         return;
     }
     let body = req.body.data;
-    console.log(body.type, body.payload);
     switch(body.type){
         case 'add':
                 db.get('config').then((config) => {
@@ -214,6 +213,45 @@ app.post('/product', cors(), (req, res) => {
                     })
                 }).then((resp) => {
                     res.status(200).json(JSON.stringify({success: true}))
+                }).catch((err) => {
+                    res.status(200).json(JSON.stringify({success: false, error: err}))
+                })
+            break;
+        case 'update':
+                db.get('config').then((config) => {
+                    return db.put({
+                        _id: 'config',
+                        _rev: config._rev,
+                        settings: config.settings,
+                        products: [
+                            ...config.products.map((p) => {
+                                if(p.id !== body.payload.id){
+                                    return p;
+                                }
+                                else{
+                                    body.payload.props.forEach((prop) => {
+                                        p[prop[0]] = prop[1]
+                                    })
+                                    return p; 
+                                }
+                            })
+                        ]
+                    })
+                }).then((resp) => {
+                    if (resp.ok){
+                        res.status(200).json(JSON.stringify({success: true}))
+                        let resp = JSON.stringify({'type': 'updateProduct', 'data': [
+                            body.payload.id,
+                            body.payload.props
+                        ]})
+                        connections.forEach((socket) => {
+                            socket.send(resp)
+                        })
+                    }
+                    else {
+                        res.status(200).json(JSON.stringify({success: false, error: 'DB malfunction'}))
+                    }
+                   
                 }).catch((err) => {
                     res.status(200).json(JSON.stringify({success: false, error: err}))
                 })

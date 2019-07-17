@@ -1,14 +1,18 @@
 .product{
     min-height:300px;
     height:auto;
+    background-color:rgb(238, 238, 238);
+    position:relative;
+}
+.product.disabledProduct{
+    opacity:0.5
 }
 .product.add{
     background-color:rgb(204, 204, 204);
-    position:relative;
 }
 .product.add .overlay{
-    background-color:rgb(0,0,0);
-    opacity:0.8;
+    background-color:#FFF;
+    opacity:0.7;
     transition: opacity .3s ease-in-out;
     -moz-transition: opacity .3s ease-in-out;
     -webkit-transition: opacity .3s ease-in-out;
@@ -16,9 +20,9 @@
     height:100%;
     position:absolute;
     font-size:15rem;
-    color:#AAA;
-    z-index:1000;
+    color:#f5b042;
+    z-index:100;
 }
 .product.add:hover .overlay{
-    opacity:0.55;
+    opacity:0.4;
 }

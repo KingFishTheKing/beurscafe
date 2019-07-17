@@ -31,9 +31,9 @@ export default class Main extends React.Component{
         this.updateStatus = this.updateStatus.bind(this);
         this.updateSettings = this.updateSettings.bind(this);
         this.saveProducts = this.saveProducts.bind(this);
-        this.updateProducts = this.updateProducts.bind(this);
-        this.restartServer = this.restartServer.bind(this);
+        this.updateProduct = this.updateProduct.bind(this);
         this.newProduct = this.newProduct.bind(this);
+        this.restartServer = this.restartServer.bind(this);
     }
 
     //Helper functions
@@ -69,6 +69,20 @@ export default class Main extends React.Component{
                         products: msg.data,
                     }));
                     this.updateStatus('Stock updated', 'bg-success text-white');
+                    break;
+                case 'updateProduct':
+                        this.setState(prevState => ({
+                            products:[
+                                prevState.products.map((prod) => {
+                                    //console.log(prod.id, msg.data[0])
+                                    prod.enabled = true;
+                                    return prod//prod.id !== msg.data[0] ? prod : prod
+                                })
+                            ],
+                        }), () => {
+                            console.log(this.state.products)
+                        });
+                        this.updateStatus('Stock updated', 'bg-success text-white');
                     break;
                 default:
                     break;
@@ -165,8 +179,29 @@ export default class Main extends React.Component{
             ).catch(err => reject(err)) 
         })
     }
-    updateProducts(){
-
+    updateProduct(id, props){
+        return new Promise((resolve, reject) => {
+            fetch('http://localhost:3000/product', {
+                method: 'POST',
+                headers:{
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "satisfy": btoa(localStorage.getItem('app_id')),
+                    "data": {
+                        "type": "update",
+                        "payload": {
+                            "id": id,
+                            "props": props
+                        }
+                    }
+                })
+            }).then(
+                response => response.json()
+            ).then(
+                data => resolve(data)
+            ).catch(err => reject(err)) 
+        })
     }
     saveProducts(){
 
@@ -222,13 +257,25 @@ export default class Main extends React.Component{
                         <React.Fragment>
                             <Route 
                                 path="/register"
-                                render={() => <Register ws={this.ws} updateStatus={this.updateStatus}  id={this.state.settings.id} products={this.state.products} />} />
+                                render={() => <Register ws={this.ws} 
+                                                        updateStatus={this.updateStatus}  
+                                                        id={this.state.settings.id} 
+                                                        products={this.state.products} />} />
                             <Route 
                                 path="/products" 
-                                render={() => <Products ws={this.ws} products={this.state.products} sign={this.state.settings.sign} update={this.updateProducts} new={this.newProduct} />  } />
+                                render={() => <Products ws={this.ws} 
+                                                        products={this.state.products} 
+                                                        sign={this.state.settings.sign} 
+                                                        updateStatusBar={this.updateStatus} 
+                                                        update={this.updateProduct} 
+                                                        new={this.newProduct} />  } />
                             <Route 
                                 path="/settings" 
-                                render={() => <Settings {...this.state.settings} configSaved={this.state.configSaved} restartServer={this.restartServer} updateStatusBar={this.updateStatus} updateSettings={this.updateSettings} />} />
+                                render={() => <Settings {...this.state.settings} 
+                                                        configSaved={this.state.configSaved} 
+                                                        restartServer={this.restartServer} 
+                                                        updateStatusBar={this.updateStatus} 
+                                                        updateSettings={this.updateSettings} />} />
                         </React.Fragment>
                     }
                 </Router>
