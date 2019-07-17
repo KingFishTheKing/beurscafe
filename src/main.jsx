@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Redirect } from 'react-router-dom';
+import { BrowserRouter as Router, Route } from 'react-router-dom';
 
 import Navigation from './Navigation';
 import Register from './blocks/Register';
@@ -19,10 +19,10 @@ export default class Main extends React.Component{
                 sign: '€',
                 refreshInterval: 180
             },
-            products: {},
+            products: [],
             loading: '',
             statusbar: null,
-            savedConfig: false,
+            configSaved: false,
             isMaster: false
         }
         this.URL = null;
@@ -30,8 +30,10 @@ export default class Main extends React.Component{
         localStorage.setItem('app_id', null);
         this.updateStatus = this.updateStatus.bind(this);
         this.updateSettings = this.updateSettings.bind(this);
-        this.configEnableDisable = this.configEnableDisable.bind(this);
+        this.saveProducts = this.saveProducts.bind(this);
+        this.updateProducts = this.updateProducts.bind(this);
         this.restartServer = this.restartServer.bind(this);
+        this.newProduct = this.newProduct.bind(this);
     }
 
     //Helper functions
@@ -132,7 +134,7 @@ export default class Main extends React.Component{
                     data = JSON.parse(data)
                     if (data.success){
                         this.setState({
-                            savedConfig: true
+                            configSaved: true
                         })
                         resolve(['Saved configuration', 'bg-success text-white'])
                     } else {
@@ -142,10 +144,32 @@ export default class Main extends React.Component{
             ).catch(err => reject([err, 'bg-warning text-light', false]))
         })
     }
-    configEnableDisable(bool){
-        this.setState({
-            savedConfig: bool
+    newProduct(product){
+        return new Promise((resolve, reject) => {
+            fetch('http://localhost:3000/product', {
+                method: 'POST',
+                headers:{
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "satisfy": btoa(localStorage.getItem('app_id')),
+                    "data": {
+                        "type": "add",
+                        "payload": product
+                    }
+                })
+            }).then(
+                response => response.json()
+            ).then(
+                data => resolve(data)
+            ).catch(err => reject(err)) 
         })
+    }
+    updateProducts(){
+
+    }
+    saveProducts(){
+
     }
     restartServer(){
         fetch('http://localhost:3000/restartServer', {
@@ -196,18 +220,15 @@ export default class Main extends React.Component{
                         <Loader waitingFor={this.state.loading} /> 
                         :  
                         <React.Fragment>
-                            <Redirect 
-                                from="/" 
-                                to="/register" />
                             <Route 
                                 path="/register"
                                 render={() => <Register ws={this.ws} updateStatus={this.updateStatus}  id={this.state.settings.id} products={this.state.products} />} />
                             <Route 
                                 path="/products" 
-                                component={Products}  />
+                                render={() => <Products ws={this.ws} products={this.state.products} sign={this.state.settings.sign} update={this.updateProducts} new={this.newProduct} />  } />
                             <Route 
                                 path="/settings" 
-                                render={() => <Settings {...this.state.settings} savedConfig={this.state.savedConfig} restartServer={this.restartServer} updateConfigState={this.configEnableDisable} updateStatusBar={this.updateStatus} updateSettings={this.updateSettings} />} />
+                                render={() => <Settings {...this.state.settings} configSaved={this.state.configSaved} restartServer={this.restartServer} updateStatusBar={this.updateStatus} updateSettings={this.updateSettings} />} />
                         </React.Fragment>
                     }
                 </Router>

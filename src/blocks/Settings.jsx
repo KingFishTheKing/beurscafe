@@ -4,19 +4,13 @@ export default class Settings extends React.Component{
     constructor(props){
         super(props);
         this.state = {
-            name: props.name || '',
-            increments: props.increments || 0.05,
-            round: props.round || 0.05,
-            sign: props.sign || '€',
-            refreshInterval: props.refreshInterval || 180,
+            ...props
         }
-        this.updateState = this.updateState.bind(this);
     }
-    updateState(input){
-        let s = {};
-        s[input.target.name] = input.target.value
-        this.setState(s);
-        this.props.updateConfigState(false)
+    componentWillReceiveProps(newProps){
+        this.setState({
+            ...newProps
+        })
     }
     render(){
         return(
@@ -31,7 +25,7 @@ export default class Settings extends React.Component{
                                     className="form-control" 
                                     name="name" 
                                     value={this.state.name} 
-                                    onChange={this.updateState} 
+                                    onChange={e => this.setState({name: e.target.value})} 
                                     placeholder="Set or update the name for your application" />
                         </div>
                     </div>
@@ -44,7 +38,7 @@ export default class Settings extends React.Component{
                                     className="form-control" 
                                     name="increments" 
                                     placeholder={this.state.increments}  
-                                    onChange={this.updateState}
+                                    onChange={e => this.setState({increments: e.target.value})} 
                                     min="0.05" 
                                     max="0.50" 
                                     step="0.05" />
@@ -56,7 +50,7 @@ export default class Settings extends React.Component{
                             <select name="round" 
                                     className="form-control" 
                                     value={this.state.round}
-                                    onChange={this.updateState}>
+                                    onChange={e => this.setState({round: e.target.value})} >
                                 <option value="0">0</option>
                                 <option value="0.01">0.01</option>
                                 <option value="0.05">0.05</option>
@@ -71,7 +65,7 @@ export default class Settings extends React.Component{
                             </label>
                         <select  name="sign" 
                                     value={this.state.sign}
-                                    onChange={this.updateState} 
+                                    onChange={e => this.setState({sign: e.target.value})}  
                                     className="form-control">
                             <option value="€">€</option>
                             <option value="$">$</option>
@@ -92,7 +86,7 @@ export default class Settings extends React.Component{
                                     min="0" 
                                     max="300" 
                                     value={this.state.refreshInterval}
-                                    onChange={this.updateState} />
+                                    onChange={e => this.setState({refreshInterval: e.target.value})}  />
                         </div>
                     </div>
                     <hr />
@@ -108,7 +102,7 @@ export default class Settings extends React.Component{
                         </button>
                         <button type="button"
                                 className="btn btn-warning"
-                                disabled={!this.props.savedConfig}
+                                disabled={!this.state.configSaved}
                                 onClick={() => {
                                     if (window.confirm('Applying settings will restart the server, this will reset the application, timers and remove any unsaved or in progress transactions since last update\nAre you sure?')){
                                         this.props.restartServer()

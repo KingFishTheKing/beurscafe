@@ -165,10 +165,12 @@ app.get('/api/products', cors(), (req, res) => {
             }
         )
 });
+
+//Command server
 app.options('/settings', cors({
     origin: '*',
     optionsSuccessStatus: 200
-}))
+}));
 app.post('/settings', cors(), (req, res) => {
     if (atob(req.body.satisfy) !== process.env.APP_ID) {
         res.status(200).json(JSON.stringify({success: false, error: 'Only master is allowed to update configs'}))
@@ -187,31 +189,77 @@ app.post('/settings', cors(), (req, res) => {
         res.status(200).json(JSON.stringify({success: false, error: err}))
     })
 });
+app.options('/product', cors({
+    origin: '*',
+    optionsSuccessStatus: 200
+}));
+app.post('/product', cors(), (req, res) => {
+    if (atob(req.body.satisfy) !== process.env.APP_ID) {
+        res.status(200).json(JSON.stringify({success: false, error: 'Only master is allowed to update configs'}))
+        return;
+    }
+    let body = req.body.data;
+    console.log(body.type, body.payload);
+    switch(body.type){
+        case 'add':
+                db.get('config').then((config) => {
+                    return db.put({
+                        _id: 'config',
+                        _rev: config._rev,
+                        settings: config.settings,
+                        products: [
+                            ...config.products,
+                            body.payload
+                        ]
+                    })
+                }).then((resp) => {
+                    res.status(200).json(JSON.stringify({success: true}))
+                }).catch((err) => {
+                    res.status(200).json(JSON.stringify({success: false, error: err}))
+                })
+            break;
+        default:
+            res.status(200).json(JSON.stringify({success: false, error: `Unrecognized command`}))
+            break;
+    }
+});
 app.options('/restartServer', cors({
     origin: '*',
     optionsSuccessStatus: 200
-}))
+}));
 app.post('/restartServer', cors(), (req, res) => {
     if (atob(req.body.satisfy) !== process.env.APP_ID) {
         res.status(401).send()
         return;
     }
     else{
-        server.close();
+        console.log('Reloading config');
         startup.call(this).then((result) => {
             console.log('config loaded');
             config = result.settings;
-            server = app.listen(process.env.PORT, () => {
-                console.log(`Reloaded server @ ${process.env.PORT}`);
-                let msg = JSON.stringify({
-                    'type': 'updateConfig',
-                    'data': config
-                })
-                connections.forEach(socket => {
-                    socket.send(msg)
-                })
-            });
-        }).catch(err => console.log(err))
+            if (config.refreshInterval !== 0){
+                timer = setInterval(()=> {
+                    updateProducts().then(
+                        data => connections.forEach(socket => 
+                            {
+                                socket.send(data)
+                        })
+                    )
+                }, (config.refreshInterval * 1000));
+            }
+            else{
+                timer = null;
+                started = false;
+            }
+            let msg = JSON.stringify({
+                'type': 'updateConfig',
+                'data': config
+            })
+            connections.forEach(socket => {
+                socket.send(msg)
+            })
+            console.log('New config in place')
+        });
     }
 });
 
