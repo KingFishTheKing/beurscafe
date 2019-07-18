@@ -30,9 +30,9 @@ export default class Main extends React.Component{
         localStorage.setItem('app_id', null);
         this.updateStatus = this.updateStatus.bind(this);
         this.updateSettings = this.updateSettings.bind(this);
-        this.saveProducts = this.saveProducts.bind(this);
         this.updateProduct = this.updateProduct.bind(this);
         this.newProduct = this.newProduct.bind(this);
+        this.removeProduct = this.removeProduct.bind(this);
         this.restartServer = this.restartServer.bind(this);
     }
 
@@ -72,17 +72,32 @@ export default class Main extends React.Component{
                     break;
                 case 'updateProduct':
                         this.setState(prevState => ({
-                            products:[
-                                prevState.products.map((prod) => {
-                                    //console.log(prod.id, msg.data[0])
-                                    prod.enabled = true;
-                                    return prod//prod.id !== msg.data[0] ? prod : prod
+                            products: prevState.products.map((prod) => {
+                                    if(prod.id === msg.data.id){
+                                        msg.data.props.forEach((prop) => {
+                                            prod[prop.propName] = prop.propValue
+                                        })
+                                    }
+                                    return prod
                                 })
-                            ],
-                        }), () => {
-                            console.log(this.state.products)
-                        });
+                        }));
                         this.updateStatus('Stock updated', 'bg-success text-white');
+                    break;
+                case 'newProduct':
+                        this.setState(prevState => ({
+                            products: [
+                                ...prevState.products,
+                                msg.data
+                            ]
+                        }));
+                        this.updateStatus('New product added', 'bg-success text-white');
+                    break;
+                case 'removeProduct':
+                        this.setState(prevState => ({
+                            products: prevState.products.filter(prod => {
+                                return prod.id !== msg.data
+                            })
+                        }))
                     break;
                 default:
                     break;
@@ -197,14 +212,36 @@ export default class Main extends React.Component{
                     }
                 })
             }).then(
-                response => response.json()
+                response => {
+                    return response.json()
+                }
             ).then(
                 data => resolve(data)
             ).catch(err => reject(err)) 
         })
     }
-    saveProducts(){
-
+    removeProduct(id){
+        return new Promise((resolve, reject) => {
+            fetch('http://localhost:3000/product', {
+                method: 'POST',
+                headers:{
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "satisfy": btoa(localStorage.getItem('app_id')),
+                    "data": {
+                        "type": "remove",
+                        "payload": id
+                    }
+                })
+            }).then(
+                response => {
+                    return response.json()
+                }
+            ).then(
+                data => resolve(data)
+            ).catch(err => reject(err)) 
+        })
     }
     restartServer(){
         fetch('http://localhost:3000/restartServer', {
@@ -267,7 +304,8 @@ export default class Main extends React.Component{
                                                         products={this.state.products} 
                                                         sign={this.state.settings.sign} 
                                                         updateStatusBar={this.updateStatus} 
-                                                        update={this.updateProduct} 
+                                                        update={this.updateProduct}
+                                                        remove={this.removeProduct}
                                                         new={this.newProduct} />  } />
                             <Route 
                                 path="/settings" 

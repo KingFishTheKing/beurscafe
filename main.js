@@ -69,7 +69,7 @@ app.ws('/', (ws, req) => {
         started = true;
     }
     ws.on('message', msg => {
-        msg = JSON.parse(msg);
+        msg = JSON.parse(msg)
         switch(msg.type){
             case 'connect':
                 connections.push(ws);
@@ -81,7 +81,8 @@ app.ws('/', (ws, req) => {
                 else {
                    resp.data = false;
                 }
-                ws.send(JSON.stringify(resp))
+                resp = JSON.stringify(resp);
+                ws.send(resp)
                 break;
             case 'updatePrice':
                 
@@ -140,8 +141,8 @@ app.get('/api/settings/', cors(), (req, res) => {
         .then(config  => {
             res
                 .status(200)
-                .send(
-                    JSON.stringify(config.settings)
+                .json(
+                    config.settings
                 )
         })
         .catch(
@@ -155,8 +156,8 @@ app.get('/api/products', cors(), (req, res) => {
         .then(config  => {
             res
                 .status(200)
-                .send(
-                    JSON.stringify(config.products)
+                .json(
+                    config.products
                 )
         })
         .catch(
@@ -173,7 +174,7 @@ app.options('/settings', cors({
 }));
 app.post('/settings', cors(), (req, res) => {
     if (atob(req.body.satisfy) !== process.env.APP_ID) {
-        res.status(200).json(JSON.stringify({success: false, error: 'Only master is allowed to update configs'}))
+        res.status(200).json({success: false, error: 'Only master is allowed to update configs'})
         return;
     }
     db.get('config').then((config) => {
@@ -184,9 +185,9 @@ app.post('/settings', cors(), (req, res) => {
             products: config.products
         })
     }).then((resp) => {
-        res.status(200).json(JSON.stringify({success: true}))
+        res.status(200).json({success: true})
     }).catch((err) => {
-        res.status(200).json(JSON.stringify({success: false, error: err}))
+        res.status(200).json({success: false, error: err})
     })
 });
 app.options('/product', cors({
@@ -195,7 +196,7 @@ app.options('/product', cors({
 }));
 app.post('/product', cors(), (req, res) => {
     if (atob(req.body.satisfy) !== process.env.APP_ID) {
-        res.status(200).json(JSON.stringify({success: false, error: 'Only master is allowed to update configs'}))
+        res.status(200).json({success: false, error: 'Only master is allowed to remove products'})
         return;
     }
     let body = req.body.data;
@@ -212,11 +213,23 @@ app.post('/product', cors(), (req, res) => {
                         ]
                     })
                 }).then((resp) => {
-                    res.status(200).json(JSON.stringify({success: true}))
+                    if (resp.ok){
+                        res.status(200).json({success: true});
+                        let resp = JSON.stringify({
+                            'type': 'newProduct', 
+                            'data': body.payload
+                        })
+                        connections.forEach((socket) => {
+                            socket.send(resp)
+                        })
+                    }
+                    else {
+                        res.status(200).json({success: false, error: 'DB malfunction'})
+                    }
                 }).catch((err) => {
-                    res.status(200).json(JSON.stringify({success: false, error: err}))
+                    res.status(200).json({success: false, error: err})
                 })
-            break;
+        break;
         case 'update':
                 db.get('config').then((config) => {
                     return db.put({
@@ -230,7 +243,7 @@ app.post('/product', cors(), (req, res) => {
                                 }
                                 else{
                                     body.payload.props.forEach((prop) => {
-                                        p[prop[0]] = prop[1]
+                                        p[prop.propName] = prop.propValue
                                     })
                                     return p; 
                                 }
@@ -239,25 +252,60 @@ app.post('/product', cors(), (req, res) => {
                     })
                 }).then((resp) => {
                     if (resp.ok){
-                        res.status(200).json(JSON.stringify({success: true}))
-                        let resp = JSON.stringify({'type': 'updateProduct', 'data': [
-                            body.payload.id,
-                            body.payload.props
-                        ]})
+                        res.status(200).json({success: true})
+                        let resp = JSON.stringify(
+                            {
+                                'type': 'updateProduct', 
+                                'data': {
+                                    "id": body.payload.id,
+                                    "props": [...body.payload.props]
+                                }
+                            }
+                        )
                         connections.forEach((socket) => {
                             socket.send(resp)
                         })
                     }
                     else {
-                        res.status(200).json(JSON.stringify({success: false, error: 'DB malfunction'}))
+                        res.status(200).json({success: false, error: 'DB malfunction'})
                     }
                    
                 }).catch((err) => {
-                    res.status(200).json(JSON.stringify({success: false, error: err}))
+                    res.status(200).json({success: false, error: err})
+                })
+            break;
+        case 'remove':
+                db.get('config').then((config) => {
+                    return db.put({
+                        _id: 'config',
+                        _rev: config._rev,
+                        settings: config.settings,
+                        products: [
+                            ...config.products.filter((product) => {
+                                return product.id === body.payload
+                            })        
+                        ]                
+                    })
+                }).then((resp) => {
+                    if (resp.ok){
+                        res.status(200).json({success: true});
+                        let resp = JSON.stringify({
+                            'type': 'removeProduct', 
+                            'data': body.payload
+                        })
+                        connections.forEach((socket) => {
+                            socket.send(resp)
+                        })
+                    }
+                    else {
+                        res.status(200).json({success: false, error: 'DB malfunction'})
+                    }
+                }).catch((err) => {
+                    res.status(200).json({success: false, error: err})
                 })
             break;
         default:
-            res.status(200).json(JSON.stringify({success: false, error: `Unrecognized command`}))
+            res.status(200).json({success: false, error: `Unrecognized command`})
             break;
     }
 });

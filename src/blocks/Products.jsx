@@ -10,28 +10,38 @@ class ProductDisplay extends React.Component{
         }
         this.changeEnable = this.changeEnable.bind(this);
         this.updateProduct = this.updateProduct.bind(this);
+        this.removeProduct = this.removeProduct.bind(this);
     }
     changeEnable(){
         this.updateProduct(this.props.specs.id, [
-            [
-                "enabled",
-                !this.props.specs.enabled
-            ]
+            {
+                propName: "enabled",
+                propValue: !this.props.specs.enabled
+            }
         ])
     }
     updateProduct(id, props){
         this.props.update(id, props)
         .then(
             data => {
-                data = JSON.parse(data);
                 data.success ? this.props.updateStatusBar('Saved product update', 'bg-success text-light') : this.props.updateStatusBar(`Failed to save update, ${data.error}`, 'bg-danger text-white', false)
             }
-        ).catch(err => console.log(err))
+        ).catch(err => console.error(err))
+    }
+    removeProduct(){
+        if(window.confirm('Deleting a product can not be reversed and the product will not be accessible anymore\nAre you sure you want to remove this product?\n\nIf you just don\'t want it to show up you can simply disable it')){
+            this.props.remove(this.props.specs.id)
+            .then(
+                data => {
+                    data.success ? this.props.updateStatusBar('Removed product', 'bg-success text-light') : this.props.updateStatusBar(`Failed to remove product, ${data.error}`, 'bg-danger text-white', false)
+                }
+            ).catch(err => console.error(err))
+        }
     }
     render(){
         return(
             <div className="col col-sm-4 p-4">
-                <div className={`product rounded ${this.props.specs.enabled !== true ? 'disabledProduct' : null}`}>
+                <div className={`product rounded ${!this.props.specs.enabled ? 'disabledProduct' : null}`}>
                     <div className="card">
                         <div className="card-header">
                                 <h5 className="card-title">
@@ -61,10 +71,10 @@ class ProductDisplay extends React.Component{
                         </div>
                         <div className="card-footer d-flex justify-content-around">
                             <button className="btn">Edit</button>
-                            <button className="btn">Delete</button>
+                            <button className="btn btn-sm btn-danger" onClick={this.removeProduct}>Delete</button>
                             <div className="custom-control custom-switch">
-                                <input type="checkbox" className="custom-control-input" checked={this.props.specs.enabled === true ? '"checked"' : null } id={`customSwitch${this.props.specs.id}`} onChange={this.changeEnable} />
-                                <label className="custom-control-label" htmlFor={`customSwitch${this.props.specs.id}`}>{this.props.specs.enabled === true ? 'Disable' : 'Enable'}</label>
+                                <input type="checkbox" className="custom-control-input" value={this.props.specs.enabled} checked={this.props.specs.enabled ? '"checked"' : null } id={`customSwitch${this.props.specs.id}`} onChange={this.changeEnable} />
+                                <label className="custom-control-label" htmlFor={`customSwitch${this.props.specs.id}`}>{this.props.specs.enabled ? 'Disable' : 'Enable'}</label>
                             </div>
                         </div>
                     </div>
@@ -78,7 +88,6 @@ export default class Products extends React.Component{
     constructor(props){
         super(props);
         this.state = {
-            products: [],
             overlay: true
         }
         this.handleLeave = this.handleLeave.bind(this);
@@ -116,7 +125,6 @@ export default class Products extends React.Component{
             }
             this.props.new(prod).then(
                 data => {
-                    data = JSON.parse(data)
                     if( data.success){
                         this.props.updateStatusBar(`New product saved`, 'bg-success text-light')
                         source.reset()
@@ -130,20 +138,16 @@ export default class Products extends React.Component{
             ).catch(err => this.props.updateStatusBar(`Something went wrong :'(, ${err}`, 'bg-danger text-light', false))
         }
     }
-    componentWillReceiveProps(newProps){
-        this.setState({
-            products: newProps.products
-        })
-    }
     render(){
         return(
             <React.Fragment>
                 <div className="row d-flex">
-                    {this.state.products.map((p, i) => {
+                    {this.props.products.map((p, i) => {
                         return <ProductDisplay  key={i} 
                                                 specs={p} 
                                                 sign={this.props.sign} 
                                                 update={this.props.update}
+                                                remove={this.props.remove}
                                                 updateStatusBar={this.props.updateStatusBar} />
                     })}
                     <div className="col col-sm-4 p-4">

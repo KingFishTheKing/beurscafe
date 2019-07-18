@@ -5,7 +5,8 @@ const footerStyle = {
     left: 0,
     bottom: 0,
     width: "100%",
-    textAlign: "center"
+    textAlign: "center",
+    zIndex:1000
 }
 
 export default class Statusbar extends React.Component{
