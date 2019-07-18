@@ -30,6 +30,7 @@ export default class Main extends React.Component{
         this.removeProduct = this.removeProduct.bind(this);
         this.restartServer = this.restartServer.bind(this);
         this.addToCart = this.addToCart.bind(this);
+        this.removeFromCart = this.removeFromCart.bind(this)
         this.emptyCart = this.emptyCart.bind(this);
         this.checkoutCart = this.checkoutCart.bind(this);
     }
@@ -158,7 +159,25 @@ export default class Main extends React.Component{
         }
     }
     removeFromCart(id, amt){
-        
+        this.setState({
+            cart: [
+                ...this.state.cart.map((prod) => {
+                    if (prod.id === id){
+                        if(prod.quantity - amt >= 0){
+                            prod.quantity -= amt
+                            return prod
+                        }
+                        else {
+                            prod.quantity = 0
+                            return prod
+                        }
+                    }
+                    else{
+                        return prod
+                    }
+                })
+            ]
+        })
     }
     emptyCart(){
 
