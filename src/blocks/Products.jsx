@@ -6,25 +6,34 @@ class ProductDisplay extends React.Component{
     constructor(props){
         super(props);
         this.state = {
-            editing: false
+            editing: false,
+            ...props.specs,
+            dummyValue: 'k'
         }
         this.changeEnable = this.changeEnable.bind(this);
         this.updateProduct = this.updateProduct.bind(this);
         this.removeProduct = this.removeProduct.bind(this);
     }
-    changeEnable(){
-        this.updateProduct(this.props.specs.id, [
-            {
-                propName: "enabled",
-                propValue: !this.props.specs.enabled
-            }
-        ])
+    changeEnable(){ 
+        this.setState({
+            enabled: !this.state.enabled
+        }, () => {
+            this.updateProduct(this.props.specs.id, [
+                {
+                    propName: "enabled",
+                    propValue: this.state.enabled
+                }
+            ])    
+        });
     }
+
     updateProduct(id, props){
         this.props.update(id, props)
         .then(
             data => {
-                data.success ? this.props.updateStatusBar('Saved product update', 'bg-success text-light') : this.props.updateStatusBar(`Failed to save update, ${data.error}`, 'bg-danger text-white', false)
+                data.success ?
+                this.props.updateStatusBar('Saved product update', 'bg-success text-light') : 
+                this.props.updateStatusBar(`Failed to save update, ${data.error}`, 'bg-danger text-white', false)
             }
         ).catch(err => console.error(err))
     }
@@ -33,38 +42,41 @@ class ProductDisplay extends React.Component{
             this.props.remove(this.props.specs.id)
             .then(
                 data => {
-                    data.success ? this.props.updateStatusBar('Removed product', 'bg-success text-light') : this.props.updateStatusBar(`Failed to remove product, ${data.error}`, 'bg-danger text-white', false)
+                    data.success ? 
+                    this.props.updateStatusBar('Removed product', 'bg-success text-light') : 
+                    this.props.updateStatusBar(`Failed to remove product, ${data.error}`, 'bg-danger text-white', false)
                 }
             ).catch(err => console.error(err))
         }
     }
+
     render(){
         return(
             <div className="col col-sm-4 p-4">
-                <div className={`product rounded ${!this.props.specs.enabled ? 'disabledProduct' : null}`}>
+                <div className={`product rounded ${!this.state.enabled ? 'disabledProduct' : null}`}>
                     <div className="card">
                         <div className="card-header">
                                 <h5 className="card-title">
-                                    {this.props.specs.name}
+                                    {this.state.name}
                                 </h5>
                                 <h6 className="card-subtitle text-muted mb-2">
-                                    Stock: <span className="text-primary">{this.props.specs.currentStock}</span> / {this.props.specs.stock}
+                                    Stock: <span className="text-primary">{this.state.currentStock}</span> / {this.state.stock}
                                 </h6>
                             </div>
                         <div className="card-body">
                             <div className="card-text">
                                 <ul className="list-group list-group-flush">
                                     <li className="list-group-item">
-                                        Min price: {this.props.sign} {this.props.specs.minPrice}
+                                        Min price: {this.props.sign} {this.state.minPrice}
                                     </li>
                                     <li className="list-group-item">
-                                        Max price: {this.props.sign} {this.props.specs.maxPrice}
+                                        Max price: {this.props.sign} {this.state.maxPrice}
                                     </li>
                                     <li className="list-group-item">
-                                        Start price: {this.props.sign} {this.props.specs.startPrice}
+                                        Start price: {this.props.sign} {this.state.startPrice}
                                     </li>
                                     <li className="list-group-item text-primary">
-                                        Current price: {this.props.sign} {this.props.specs.currentPrice}
+                                        Current price: {this.props.sign} {this.state.currentPrice}
                                     </li>
                                 </ul>
                             </div>
@@ -73,8 +85,8 @@ class ProductDisplay extends React.Component{
                             <button className="btn">Edit</button>
                             <button className="btn btn-sm btn-danger" onClick={this.removeProduct}>Delete</button>
                             <div className="custom-control custom-switch">
-                                <input type="checkbox" className="custom-control-input" value={this.props.specs.enabled} checked={this.props.specs.enabled ? '"checked"' : null } id={`customSwitch${this.props.specs.id}`} onChange={this.changeEnable} />
-                                <label className="custom-control-label" htmlFor={`customSwitch${this.props.specs.id}`}>{this.props.specs.enabled ? 'Disable' : 'Enable'}</label>
+                                <input type="checkbox" className="custom-control-input" value={this.state.enabled} checked={this.state.enabled} id={`customSwitch${this.state.id}`} onChange={this.changeEnable} />
+                                <label className="custom-control-label" htmlFor={`customSwitch${this.state.id}`}>{this.state.enabled ? 'Enabled' : 'Disabled'}</label>
                             </div>
                         </div>
                     </div>
