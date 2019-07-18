@@ -12,14 +12,9 @@ export default class Main extends React.Component{
     constructor(props){
         super(props);
         this.state = {
-            settings: {
-                name: 'default',
-                increments: 0.05,
-                round: 0.05,
-                sign: '€',
-                refreshInterval: 180
-            },
+            settings: {},
             products: [],
+            cart: [],
             loading: '',
             statusbar: null,
             configSaved: false,
@@ -34,6 +29,9 @@ export default class Main extends React.Component{
         this.newProduct = this.newProduct.bind(this);
         this.removeProduct = this.removeProduct.bind(this);
         this.restartServer = this.restartServer.bind(this);
+        this.addToCart = this.addToCart.bind(this);
+        this.emptyCart = this.emptyCart.bind(this);
+        this.checkoutCart = this.checkoutCart.bind(this);
     }
 
     //Helper functions
@@ -116,6 +114,58 @@ export default class Main extends React.Component{
             }, 2000)
         }
     }
+    addToCart(id, amt){
+        let product = this.state.products.find(function(p){return p.id === id})
+        if (amt <= product.currentStock && product.enabled){
+            //product is still in stock and is enabled for sale
+            let index = this.state.cart.findIndex((entry) => {
+                return entry.id === id
+            })
+            if(index === -1){
+                //Add new product to cart
+                this.setState({
+                    cart : 
+                        [
+                            ...this.state.cart,
+                            {
+                                "id": id,
+                                "quantity": amt,
+                                "readableName": product.name,
+                                "currentPrice": product.currentPrice
+                            }
+                        ]
+                }) 
+            }
+            else {
+                //product already in cart
+                this.setState({
+                    cart : 
+                        [
+                            ...this.state.cart.map((prod, i) => {
+                                if(index !== i) {
+                                    return prod
+                                }else {
+                                    if (prod.quantity + amt <= product.currentStock){
+                                        prod.quantity += amt
+                                    }
+                                    return prod;
+                                }
+                            })
+                            
+                        ]
+                }) 
+            }
+        }
+    }
+    removeFromCart(id, amt){
+        
+    }
+    emptyCart(){
+
+    }
+    checkoutCart(){
+
+    }
     updateStatus(content, pClass, timeout=true){
         this.setState({
             statusbar: {
@@ -160,7 +210,6 @@ export default class Main extends React.Component{
                 resp => resp.json()  
             ).then(
                 data => {
-                    data = JSON.parse(data)
                     if (data.success){
                         this.setState({
                             configSaved: true
@@ -277,11 +326,9 @@ export default class Main extends React.Component{
                 products: json,
                 loading: false
             })
+            
         )
         this.connect('ws://localhost:3000/');
-    }
-    componentWillUnmount(){
-        //this.viewer.close();
     }
     render(){
         return(
@@ -294,14 +341,16 @@ export default class Main extends React.Component{
                         <React.Fragment>
                             <Route 
                                 path="/register"
-                                render={() => <Register ws={this.ws} 
-                                                        updateStatus={this.updateStatus}  
-                                                        id={this.state.settings.id} 
-                                                        products={this.state.products} />} />
+                                render={() => <Register products={this.state.products}
+                                                        cart={this.state.cart}
+                                                        sign={this.state.settings.sign}
+                                                        add={this.addToCart}
+                                                        remove={this.removeFromCart} 
+                                                        reset={this.emptyCart}
+                                                        done={this.checkoutCart}/>} />
                             <Route 
                                 path="/products" 
-                                render={() => <Products ws={this.ws} 
-                                                        products={this.state.products} 
+                                render={() => <Products products={this.state.products} 
                                                         sign={this.state.settings.sign} 
                                                         updateStatusBar={this.updateStatus} 
                                                         update={this.updateProduct}

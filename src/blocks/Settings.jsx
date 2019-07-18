@@ -12,6 +12,9 @@ export default class Settings extends React.Component{
             ...newProps
         })
     }
+    componentDidMount(){
+        document.title = 'Settings'
+    }
     render(){
         return(
             <React.Fragment>

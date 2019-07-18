@@ -150,6 +150,9 @@ export default class Products extends React.Component{
             ).catch(err => this.props.updateStatusBar(`Something went wrong :'(, ${err}`, 'bg-danger text-light', false))
         }
     }
+    componentWillMount(){
+        document.title = "Products"
+    }
     render(){
         return(
             <React.Fragment>
