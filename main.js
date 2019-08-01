@@ -43,7 +43,7 @@ const removeSocket = (socket) => {
 
 const updateProducts = async () => {
     return new Promise((resolve, reject) => {
-        
+        resolve()
     })
 }
 
@@ -134,7 +134,8 @@ app.get('/image/:name', (req, res) => {
 app.get('/api/settings/', cors(), (req, res) => {
     db.settings.find({}, (err, settings) => {
         if (err) res.status(404).send('something went wrong');
-        else res.status(200).json(settings)
+        else if (settings[0].configSaved) res.status(200).json(settings[0])
+        else res.status(200).json(config)
     })
 });
 app.get('/api/products', cors(), (req, res) => {
@@ -154,8 +155,14 @@ app.post('/settings', cors(), (req, res) => {
         res.status(200).json({success: false, error: 'Only master is allowed to update configs'})
         return;
     }
-    //res.status(200).json({success: true})
-    //res.status(200).json({success: false, error: err})
+    db.settings.update({}, req.body.settings, (err, numReplaced) => {
+        if(numReplaced === 1){
+            res.status(200).json({success: true})
+        }
+        else {
+            res.status(200).json({success: false, error: err})
+        }
+    })
 });
 app.options('/product', cors({
     origin: '*',
@@ -247,29 +254,34 @@ app.post('/restartServer', cors(), (req, res) => {
         console.log('Reloading config');
         startup.call(this).then((result) => {
             console.log('config loaded');
-            config = result.settings;
-            if (config.refreshInterval !== 0){
-                timer = setInterval(()=> {
-                    updateProducts().then(
-                        data => connections.forEach(socket => 
-                            {
-                                socket.send(data)
-                        })
-                    )
-                }, (config.refreshInterval * 1000));
-            }
-            else{
-                timer = null;
-                started = false;
-            }
-            let msg = JSON.stringify({
-                'type': 'updateConfig',
-                'data': config
+            result.settings.find({}, (err, s) => {
+                if (!err && s.length > 0){
+                    config = s[0]
+                    if (config.refreshInterval !== 0){
+                        timer = setInterval(()=> {
+                            updateProducts().then(
+                                data => connections.forEach(socket => 
+                                    {
+                                        socket.send(data)
+                                })
+                            )
+                        }, (config.refreshInterval * 1000));
+                    }
+                    else{
+                        timer = null;
+                        started = false;
+                    }
+                    let msg = JSON.stringify({
+                        'type': 'updateConfig',
+                        'data': config
+                    })
+                    connections.forEach(socket => {
+                        socket.send(msg)
+                    })
+
+                    console.log('New config in place')
+                }
             })
-            connections.forEach(socket => {
-                socket.send(msg)
-            })
-            console.log('New config in place')
         });
     }
 });
@@ -299,12 +311,17 @@ startup()
     .then((dbc) => {
         console.log('Config loaded');
         dbc.settings.find({}, (err, s) => {
-            config = !err && s.length > 0 ? s : {
-                name: 'default',
-                increments: 0.5,
-                round: 0.1,
-                sign: '€',
-                refreshInterval: 180
+            if(!err && s.length > 0) {
+                config = s[0]
+            } else {
+                config = {
+                    name: 'default',
+                    increments: 0.5,
+                    round: 0.1,
+                    sign: '€',
+                    refreshInterval: 180,
+                }
+                dbc.settings.insert(config);
             }
         });
         dbc.products.find({}, (err, p) => {
