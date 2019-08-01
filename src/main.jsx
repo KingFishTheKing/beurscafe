@@ -180,10 +180,15 @@ export default class Main extends React.Component{
         })
     }
     emptyCart(){
-
+        this.setState({
+            cart: []
+        })
     }
     checkoutCart(){
-
+        this.ws.send(JSON.stringify({
+            'type': 'checkout',
+            'data': this.state.cart
+        }))
     }
     updateStatus(content, pClass, timeout=true){
         this.setState({

@@ -85,7 +85,7 @@ class ProductDisplay extends React.Component{
                             <button className="btn">Edit</button>
                             <button className="btn btn-sm btn-danger" onClick={this.removeProduct}>Delete</button>
                             <div className="custom-control custom-switch">
-                                <input type="checkbox" className="custom-control-input" value={this.state.enabled} checked={this.state.enabled} id={`customSwitch${this.state.id}`} onChange={this.changeEnable} />
+                                <input type="checkbox" className="custom-control-input" value={this.state.enabled} checked={Boolean(this.state.enabled)} id={`customSwitch${this.state.id}`} onChange={this.changeEnable} />
                                 <label className="custom-control-label" htmlFor={`customSwitch${this.state.id}`}>{this.state.enabled ? 'Enabled' : 'Disabled'}</label>
                             </div>
                         </div>

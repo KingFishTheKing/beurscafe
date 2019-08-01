@@ -69,25 +69,37 @@ export class ProductDisplay extends React.Component{
 }
 export class Cart extends React.Component{
     render(){
+        let total = this.props.cart.reduce((a, b) => { return a + (b.quantity * b.currentPrice)}, 0).toFixed(2);
         return(
-            <React.Fragment>
+            <React.Fragment> 
                 <div className="col-12 col-lg-2 row ml-auto mr-auto mb-2 align-items-start">
                     <ul style={{width:'100%'}} className="list-group list-group-flush col-12">
                         {this.props.cart.map((product, index) => {
-                            return <li key={index} className="list-group-item d-flex justify-content-between align-items-start">
+                            return product.quantity > 0 ?
+                            <li key={index} className="list-group-item d-flex justify-content-between align-items-start">
                                 {product.readableName} <small className="text-muted ml-2">({this.props.sign} {product.currentPrice})</small>
                                 <span className="badge badge-primary badge-pill ml-auto">{product.quantity}</span>
                             </li>
+                            : null
                         })}
                     </ul>
-                    <p className="mt-3 col-12 h3 d-flex justify-content-around text-primary">
-                        <span>Total {this.props.sign}
-                        </span>
-                    </p>
-                    <div className="col-12 d-flex justify-content-around">
-                        <button className="btn btn-danger" onClick={this.props.reset}>Reset</button>
-                        <button className="btn btn-primary btn-lg" onClick={this.props.done}>Done</button>
-                    </div>
+                    <p className="mt-3 col-12 h3 d-flex justify-content-around text-primary">   
+                        {
+                            total > 0 ?
+                                <span>Total {this.props.sign} {total}</span>
+                            :
+                                <span>Checkout empty</span>
+                        }
+                    </p>              
+                    {
+                        total > 0 ?
+                            <div className="col-12 d-flex justify-content-around">
+                                <button className="btn btn-danger" onClick={this.props.reset}>Reset</button>
+                                <button className="btn btn-primary btn-lg" onClick={this.props.done}>Done</button>
+                            </div>
+                        :
+                            null
+                    }      
                 </div>
             </React.Fragment>
         )
@@ -102,7 +114,7 @@ export default class Register extends React.Component{
         return(
             <React.Fragment>
                 <div className="row">
-                    <Cart cart={this.props.cart} sign={this.props.sign} reset={this.reset} done={this.done} />
+                    <Cart cart={this.props.cart} sign={this.props.sign} reset={this.props.reset} done={this.props.done} />
                     <div className={`row productList mr-auto col-12 col-lg-10`}>
                         {this.props.products.map((p, i) => {
                                 return p.enabled ? <ProductDisplay key={i} product={p} sign={this.props.sign} add={this.props.add} remove={this.props.remove} /> : null

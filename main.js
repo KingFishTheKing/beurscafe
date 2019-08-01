@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
-const PouchDB = require('pouchdb');
+const nedb = require('nedb');
 const dotenv = require('dotenv');
 
 const app = express();
@@ -10,11 +10,12 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 require('express-ws')(app);
 dotenv.config();
-const db = new PouchDB('server/db/beurscafe-'+process.env.APP_ID);
+const db = {}
 
 //Global variables
 let config = null;
 let products = null;
+let history = null;
 let started = false;
 let timer = null;
 let masterSocket = null;
@@ -39,16 +40,7 @@ const removeSocket = (socket) => {
         masterSocket = null;
     }
 }
-const InsertIntoDb = async (input) => {
-    return new Promise((resolve, reject) => {
 
-    })
-}
-const updateStock = async (updates) => {
-   return new Promise((resolve, reject) => {
-        
-    })
-}
 const updateProducts = async () => {
     return new Promise((resolve, reject) => {
         
@@ -90,6 +82,9 @@ app.ws('/', (ws, req) => {
             case 'requestUpdate':
 
             break;
+            case 'checkout':
+                console.log(msg.data)
+                break;
             default:
                 return null;
         }
@@ -137,34 +132,16 @@ app.get('/image/:name', (req, res) => {
 
 //Api server
 app.get('/api/settings/', cors(), (req, res) => {
-    db.get('config')
-        .then(config  => {
-            res
-                .status(200)
-                .json(
-                    config.settings
-                )
-        })
-        .catch(
-            err => {
-                res.status(404).send('Something went wrong')
-            }
-        )
+    db.settings.find({}, (err, settings) => {
+        if (err) res.status(404).send('something went wrong');
+        else res.status(200).json(settings)
+    })
 });
 app.get('/api/products', cors(), (req, res) => {
-    db.get('config')
-        .then(config  => {
-            res
-                .status(200)
-                .json(
-                    config.products
-                )
-        })
-        .catch(
-            err => {
-                res.status(404).send('Something went wrong')
-            }
-        )
+    db.products.find({}, (err, products) => {
+        if (err) res.status(404).send('something went wrong');
+        else res.status(200).json(products)
+    })
 });
 
 //Command server
@@ -177,18 +154,8 @@ app.post('/settings', cors(), (req, res) => {
         res.status(200).json({success: false, error: 'Only master is allowed to update configs'})
         return;
     }
-    db.get('config').then((config) => {
-        return db.put({
-            _id: 'config',
-            _rev: config._rev,
-            settings: req.body.settings,
-            products: config.products
-        })
-    }).then((resp) => {
-        res.status(200).json({success: true})
-    }).catch((err) => {
-        res.status(200).json({success: false, error: err})
-    })
+    //res.status(200).json({success: true})
+    //res.status(200).json({success: false, error: err})
 });
 app.options('/product', cors({
     origin: '*',
@@ -202,56 +169,29 @@ app.post('/product', cors(), (req, res) => {
     let body = req.body.data;
     switch(body.type){
         case 'add':
-                db.get('config').then((config) => {
-                    return db.put({
-                        _id: 'config',
-                        _rev: config._rev,
-                        settings: config.settings,
-                        products: [
-                            ...config.products,
-                            body.payload
-                        ]
+            db.products.insert(body.payload, (err, newDoc) => {
+                if (newDoc){
+                    res.status(200).json({success: true});
+                    let resp = JSON.stringify({
+                        'type': 'newProduct', 
+                        'data': body.payload
                     })
-                }).then((resp) => {
-                    if (resp.ok){
-                        res.status(200).json({success: true});
-                        let resp = JSON.stringify({
-                            'type': 'newProduct', 
-                            'data': body.payload
-                        })
-                        connections.forEach((socket) => {
-                            socket.send(resp)
-                        })
-                    }
-                    else {
-                        res.status(200).json({success: false, error: 'DB malfunction'})
-                    }
-                }).catch((err) => {
-                    res.status(200).json({success: false, error: err})
-                })
+                    connections.forEach((socket) => {
+                        socket.send(resp)
+                    })
+                }
+                else {
+                    res.status(200).json({success: false, error: 'DB malfunction'})
+                }
+            })
         break;
         case 'update':
-                db.get('config').then((config) => {
-                    return db.put({
-                        _id: 'config',
-                        _rev: config._rev,
-                        settings: config.settings,
-                        products: [
-                            ...config.products.map((p) => {
-                                if(p.id !== body.payload.id){
-                                    return p;
-                                }
-                                else{
-                                    body.payload.props.forEach((prop) => {
-                                        p[prop.propName] = prop.propValue
-                                    })
-                                    return p; 
-                                }
-                            })
-                        ]
-                    })
-                }).then((resp) => {
-                    if (resp.ok){
+                var p = {};
+                body.payload.props.forEach((prop) => {
+                    p[prop.propName] = prop.propValue
+                });
+                db.products.update({id: body.payload.id}, {$set:  p }, (err) => {
+                    if (err === null){
                         res.status(200).json({success: true})
                         let resp = JSON.stringify(
                             {
@@ -269,25 +209,12 @@ app.post('/product', cors(), (req, res) => {
                     else {
                         res.status(200).json({success: false, error: 'DB malfunction'})
                     }
-                   
-                }).catch((err) => {
-                    res.status(200).json({success: false, error: err})
+                    res.send()
                 })
             break;
         case 'remove':
-                db.get('config').then((config) => {
-                    return db.put({
-                        _id: 'config',
-                        _rev: config._rev,
-                        settings: config.settings,
-                        products: [
-                            ...config.products.filter((product) => {
-                                return product.id === body.payload
-                            })        
-                        ]                
-                    })
-                }).then((resp) => {
-                    if (resp.ok){
+                db.products.remove({id: body.payload}, (err) => {
+                    if (err === null){
                         res.status(200).json({success: true});
                         let resp = JSON.stringify({
                             'type': 'removeProduct', 
@@ -300,8 +227,6 @@ app.post('/product', cors(), (req, res) => {
                     else {
                         res.status(200).json({success: false, error: 'DB malfunction'})
                     }
-                }).catch((err) => {
-                    res.status(200).json({success: false, error: err})
                 })
             break;
         default:
@@ -356,33 +281,14 @@ app.get('*', (req, res) => {
 
 //startup
 const loadConfig = () => {
-    return new Promise((resolve, reject) => {        
-        db.get('config')
-        .catch((err) => {
-            if (err.status === 404){
-                db.put({
-                    _id : 'config',
-                    settings : {},
-                    products : []
-                }).then(
-                   doc => { return doc}
-                ).catch(
-                    err => reject(err)
-                )
-            }
-            else {
-                reject(err)
-            }
-        }
-        ).then(
-            settings => { 
-                resolve(settings)
-            }
-        )
-        .catch( 
-            err => reject(err)
-        )
-    })
+    db.settings = new nedb(`./server/db/${process.env.APP_ID}/settings`);
+    db.products = new nedb(`./server/db/${process.env.APP_ID}/products`);
+    db.history = new nedb(`./server/db/${process.env.APP_ID}/history`);
+    return Promise.all([
+        db.settings.loadDatabase((err) => { !err ? Promise.resolve() : Promise.reject()  }),
+        db.products.loadDatabase((err) => { !err ? Promise.resolve() : Promise.reject()  }),
+        db.history.loadDatabase((err) => { !err ? Promise.resolve() : Promise.reject()  }),
+    ]).then(() => { return db })
 }
 const startup = async () => {
     console.log('Loading config');
@@ -390,12 +296,26 @@ const startup = async () => {
     return r;
 }
 startup()
-    .then((result) => {
-        console.log('config loaded');
-        config = result.settings;
-        products = result.products;
+    .then((dbc) => {
+        console.log('Config loaded');
+        dbc.settings.find({}, (err, s) => {
+            config = !err && s.length > 0 ? s : {
+                name: 'default',
+                increments: 0.5,
+                round: 0.1,
+                sign: '€',
+                refreshInterval: 180
+            }
+        });
+        dbc.products.find({}, (err, p) => {
+            products = !err && p.length > 0 ? p : []
+        });
+        dbc.history.find({}, (err, h) => {
+            history = !err && h.length > 0 ? h : []
+        });
         connections = []
+        console.log('Config applied');
         server = app.listen(process.env.PORT, () => {
-            console.log(`listening at port ${process.env.PORT}`);
+            console.log(`Listening at port ${process.env.PORT}`);
         });
     }).catch(err => console.log(err))
