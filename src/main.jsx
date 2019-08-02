@@ -60,13 +60,15 @@ export default class Main extends React.Component{
                     break;
                 case 'updateConfig':
                     this.setState({
-                        settings: msg.data
-                    })
+                        settings: msg.data,
+                        configSaved: false
+                    });
                     break;
                 case 'updateStock':
-                    this.setState(prevState => ({
+                    console.log(msg.data);
+                    /*this.setState(prevState => ({
                         products: msg.data,
-                    }));
+                    }));*/
                     this.updateStatus('Stock updated', 'bg-success text-white');
                     break;
                 case 'updateProduct':
@@ -80,7 +82,7 @@ export default class Main extends React.Component{
                                     return prod
                                 })
                         }));
-                        this.updateStatus('Stock updated', 'bg-success text-white');
+                        this.updateStatus('Product updated', 'bg-success text-white');
                     break;
                 case 'newProduct':
                         this.setState(prevState => ({

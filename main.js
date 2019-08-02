@@ -42,9 +42,13 @@ const removeSocket = (socket) => {
 }
 
 const updateProducts = async () => {
+    //Calcuate history
     return new Promise((resolve, reject) => {
-        resolve()
-    })
+        resolve(JSON.stringify({
+            type: 'update',
+            data: null
+        }))
+    }).catch(e => { return e })
 }
 
 //Websocket server
@@ -54,9 +58,14 @@ app.ws('/', (ws, req) => {
             updateProducts().then(
                 data => connections.forEach(socket => 
                     {
-                        socket.send(data)
+                        if(socket.readyState === 1){
+                            socket.send(data)
+                        }
+                        if (socket.readyState > 1){
+                            connections.slice(connections.findIndex(socket), 1)
+                        }
                 })
-            )
+            ).catch(e => console.log(e))
         }, (config.refreshInterval * 1000));
         started = true;
     }
@@ -76,14 +85,48 @@ app.ws('/', (ws, req) => {
                 resp = JSON.stringify(resp);
                 ws.send(resp)
                 break;
-            case 'updatePrice':
-                
-            break;
             case 'requestUpdate':
 
             break;
             case 'checkout':
-                console.log(msg.data)
+                let success = [];
+                Promise
+                    .all(
+                        msg.data.map(product => {
+                            return new Promise((resolve, reject) => {
+                                db.products.find({'id': product.id}, (err, docs) => { 
+                                    if (err !== null) {
+                                        reject(product.id)
+                                    }
+                                    db.products.update({'id': product.id}, {$set : { currentStock: docs[0].currentStock-product.quantity }}, (err, replaced) => {
+                                        if (err !== null) {
+                                            reject(product.id)
+                                        }
+                                        if (replaced === 1){
+                                            db.history.insert({
+                                                'time': Date.now(),
+                                                'product': product.id,
+                                                'quantity': product.quantity,
+                                                'currentPrice': docs[0].currentPrice,
+                                            }, (err, doc) => {
+                                                if (err === null) {
+                                                    success.push({'for': product.id, 'stock': docs[0].currentStock-product.quantity})
+                                                    resolve(product.id);
+                                                }
+                                                else {
+                                                    reject(product.id)
+                                                }
+                                            })
+                                        }
+                                    })
+                                })
+                            })
+                        }  
+                    ))
+                    .then((done, err) => {
+                        console.log(`Errors: ${err}, done: ${done}`)
+                    })
+                    .catch( e => console.log(`Catch ${e}`))
                 break;
             default:
                 return null;
@@ -134,7 +177,6 @@ app.get('/image/:name', (req, res) => {
 app.get('/api/settings/', cors(), (req, res) => {
     db.settings.find({}, (err, settings) => {
         if (err) res.status(404).send('something went wrong');
-        else if (settings[0].configSaved) res.status(200).json(settings[0])
         else res.status(200).json(config)
     })
 });
@@ -252,7 +294,7 @@ app.post('/restartServer', cors(), (req, res) => {
     }
     else{
         console.log('Reloading config');
-        startup.call(this).then((result) => {
+        startup.call(this).then((result, err) => {
             console.log('config loaded');
             result.settings.find({}, (err, s) => {
                 if (!err && s.length > 0){
@@ -262,7 +304,12 @@ app.post('/restartServer', cors(), (req, res) => {
                             updateProducts().then(
                                 data => connections.forEach(socket => 
                                     {
-                                        socket.send(data)
+                                        if(socket.readyState === 1){
+                                            socket.send(data)
+                                        }
+                                        if (socket.readyState > 1){
+                                            connections.slice(connections.findIndex(socket), 1)
+                                        }
                                 })
                             )
                         }, (config.refreshInterval * 1000));
@@ -278,11 +325,12 @@ app.post('/restartServer', cors(), (req, res) => {
                     connections.forEach(socket => {
                         socket.send(msg)
                     })
-
                     console.log('New config in place')
                 }
+                if (!err) res.json({success: true})
+                else res.json({success: false})
             })
-        });
+        }).catch(e => console.log(`Caught error: ${e}`))
     }
 });
 
@@ -297,10 +345,13 @@ const loadConfig = () => {
     db.products = new nedb(`./server/db/${process.env.APP_ID}/products`);
     db.history = new nedb(`./server/db/${process.env.APP_ID}/history`);
     return Promise.all([
-        db.settings.loadDatabase((err) => { !err ? Promise.resolve() : Promise.reject()  }),
-        db.products.loadDatabase((err) => { !err ? Promise.resolve() : Promise.reject()  }),
-        db.history.loadDatabase((err) => { !err ? Promise.resolve() : Promise.reject()  }),
-    ]).then(() => { return db })
+        db.settings.loadDatabase((err) => { !err ? Promise.resolve(true) : Promise.reject(false)  }),
+        db.products.loadDatabase((err) => { !err ? Promise.resolve(true) : Promise.reject(false)  }),
+        db.history.loadDatabase((err) => { !err ? Promise.resolve(true) : Promise.reject(false)  }),
+    ]).then((done, err) => { 
+        if (err) console.log('Failure to load one or more databases')    
+        return db 
+    })
 }
 const startup = async () => {
     console.log('Loading config');

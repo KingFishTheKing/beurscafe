@@ -8,9 +8,9 @@ class ProductDisplay extends React.Component{
         this.state = {
             editing: false,
             ...props.specs,
-            dummyValue: 'k'
         }
         this.changeEnable = this.changeEnable.bind(this);
+        this.processUpdate = this.processUpdate.bind(this);
         this.updateProduct = this.updateProduct.bind(this);
         this.removeProduct = this.removeProduct.bind(this);
     }
@@ -26,7 +26,15 @@ class ProductDisplay extends React.Component{
             ])    
         });
     }
-
+    processUpdate(){
+        let push = [];
+        if(this.state.name !== this.state.tempName) push.push({'propName': 'name', 'propValue': this.state.tempName});
+        if(this.state.minPrice !== this.state.tempMinPrice) push.push({'propName':'minPrice', 'propValue': this.state.tempMinPrice});
+        if(this.state.maxPrice !== this.state.tempMaxPrice) push.push({'propName': 'maxPrice', 'propValue': this.state.tempMaxPrice});
+        if(this.state.currentPrice !== this.state.tempCurrentPrice) push.push({'propName':'currentPrice', 'propValue': this.state.tempCurrentPrice});
+        if(this.state.startPrice !== this.state.tempStartPrice) push.push({'propName':'startPrice', 'propValue': this.state.tempStartPrice});
+        this.updateProduct(this.props.specs.id, push)
+    }
     updateProduct(id, props){
         this.props.update(id, props)
         .then(
@@ -53,11 +61,12 @@ class ProductDisplay extends React.Component{
     render(){
         return(
             <div className="col col-sm-4 p-4">
-                <div className={`product rounded ${!this.state.enabled ? 'disabledProduct' : null}`}>
+                <div className={`product rounded ${!this.state.enabled && !this.state.editing ? 'disabledProduct' : null}`}>
                     <div className="card">
                         <div className="card-header">
                                 <h5 className="card-title">
-                                    {this.state.name}
+                                    {this.state.editing ? <input className="form-control-sm d-inline" type="text" onChange={(value) => {this.setState({tempName:value.target.value})}} value={this.state.tempName} />  : this.state.name}
+                                    {}
                                 </h5>
                                 <h6 className="card-subtitle text-muted mb-2">
                                     Stock: <span className="text-primary">{this.state.currentStock}</span> / {this.state.stock}
@@ -67,26 +76,71 @@ class ProductDisplay extends React.Component{
                             <div className="card-text">
                                 <ul className="list-group list-group-flush">
                                     <li className="list-group-item">
-                                        Min price: {this.props.sign} {this.state.minPrice}
+                                        Min price: {this.props.sign} {this.state.editing ? <input min="0" step="0.01" type="number" className="form-control-sm d-inline" onChange={(value) => {this.setState({tempMinPrice:value.target.value})}} value={this.state.tempMinPrice} /> : this.state.minPrice }
                                     </li>
                                     <li className="list-group-item">
-                                        Max price: {this.props.sign} {this.state.maxPrice}
+                                        Max price: {this.props.sign} {this.state.editing ? <input min="0" step="0.01" type="number" className="form-control-sm d-inline" onChange={(value) => {this.setState({tempMaxPrice:value.target.value})}} value={this.state.tempMaxPrice} /> : this.state.maxPrice }
                                     </li>
                                     <li className="list-group-item">
-                                        Start price: {this.props.sign} {this.state.startPrice}
+                                        Start price: {this.props.sign} {this.state.editing ? <input min="0" step="0.01" type="number" className="form-control-sm d-inline" onChange={(value) => {this.setState({tempStartPrice:value.target.value})}} value={this.state.tempStartPrice} /> : this.state.startPrice }
                                     </li>
                                     <li className="list-group-item text-primary">
-                                        Current price: {this.props.sign} {this.state.currentPrice}
+                                        Current price: {this.props.sign} {this.state.editing ? <input min="0" step="0.01" type="number" className="form-control-sm d-inline" onChange={(value) => {this.setState({tempCurrentPrice:value.target.value})}} value={this.state.tempCurrentPrice} /> : this.state.currentPrice }
                                     </li>
+                                    {this.state.editing ? 
+                                        <li className="list-group-item">
+                                            <button className={`btn ${this.state.name === this.state.tempName &&
+                                                        this.state.minPrice === this.state.tempMinPrice &&
+                                                        this.state.maxPrice === this.state.tempMaxPrice &&
+                                                        this.state.startPrice === this.state.tempStartPrice &&
+                                                        this.state.currentPrice === this.state.tempCurrentPrice ? 'btn-warning' : 'btn-success' }`}
+                                                    disabled={(
+                                                        this.state.name === this.state.tempName &&
+                                                        this.state.minPrice === this.state.tempMinPrice &&
+                                                        this.state.maxPrice === this.state.tempMaxPrice &&
+                                                        this.state.startPrice === this.state.tempStartPrice &&
+                                                        this.state.currentPrice === this.state.tempCurrentPrice
+                                                        )}
+                                                    onClick={this.processUpdate}>
+                                                        Save changes
+                                            </button> 
+                                        </li>
+                                        : 
+                                        null
+                                    }
                                 </ul>
+                                
                             </div>
                         </div>
                         <div className="card-footer d-flex justify-content-around">
-                            <button className="btn">Edit</button>
-                            <button className="btn btn-sm btn-danger" onClick={this.removeProduct}>Delete</button>
+                            <button className={`btn ${this.state.editing ? 'btn-outline-primary' : null}`} 
+                                    onClick={() => {this.setState({
+                                                editing:!this.state.editing,
+                                                tempName: this.state.name,
+                                                tempMinPrice: this.state.minPrice,
+                                                tempMaxPrice: this.state.maxPrice,
+                                                tempStartPrice: this.state.startPrice,
+                                                tempCurrentPrice: this.state.currentPrice
+                                            })}} >
+                                        Edit
+                            </button>
+                            <button className="btn btn-sm btn-danger" 
+                                    onClick={this.removeProduct}
+                                    disabled={this.state.editing}>
+                                        Delete
+                            </button>
                             <div className="custom-control custom-switch">
-                                <input type="checkbox" className="custom-control-input" value={this.state.enabled} checked={Boolean(this.state.enabled)} id={`customSwitch${this.state.id}`} onChange={this.changeEnable} />
-                                <label className="custom-control-label" htmlFor={`customSwitch${this.state.id}`}>{this.state.enabled ? 'Enabled' : 'Disabled'}</label>
+                                <input  type="checkbox"
+                                        disabled={this.state.editing}
+                                        className="custom-control-input" 
+                                        value={this.state.enabled} 
+                                        checked={Boolean(this.state.enabled)} 
+                                        id={`customSwitch${this.state.id}`} 
+                                        onChange={this.changeEnable} />
+                                <label  className="custom-control-label" 
+                                        htmlFor={`customSwitch${this.state.id}`}>
+                                            {this.state.enabled ? 'Enabled' : 'Disabled'}
+                                </label>
                             </div>
                         </div>
                     </div>
