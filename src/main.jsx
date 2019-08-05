@@ -18,7 +18,8 @@ export default class Main extends React.Component{
             loading: '',
             statusbar: null,
             configSaved: false,
-            isMaster: false
+            isMaster: false,
+            conntected: false
         }
         this.URL = null;
         this.ws = null;
@@ -33,6 +34,8 @@ export default class Main extends React.Component{
         this.removeFromCart = this.removeFromCart.bind(this)
         this.emptyCart = this.emptyCart.bind(this);
         this.checkoutCart = this.checkoutCart.bind(this);
+
+        this.forceUpdate = this.forceUpdate.bind(this);
     }
 
     //Helper functions
@@ -45,6 +48,14 @@ export default class Main extends React.Component{
                     'data': localStorage.getItem('app_id')
                 }))
                 this.updateStatus('Connected to server', 'bg-success text-light');
+                this.setState({
+                    connected: true
+                })
+            }
+            else{
+                this.setState({
+                    connected: false
+                })
             }
         }
         this.ws.addEventListener('message', (msg) => {
@@ -124,16 +135,22 @@ export default class Main extends React.Component{
             }
         });
         this.ws.addEventListener('close',  () => {
+            this.setState({
+                connected: false
+            })
             this.updateStatus(`Disconnected :'( Hold on! Trying to reconnect...`, 'bg-danger text-white', false)
             setTimeout(() => {
                 this.connect(server);
-            }, 2000)
+            }, 500)
         })
         this.ws.onerror = () => {
+            this.setState({
+                connected: false
+            })
             this.updateStatus(`Disconnected :'( Hold on! Trying to reconnect...`, 'bg-danger text-white', false)
             setTimeout(() => {
                 this.connect(server);
-            }, 2000)
+            }, 500)
         }
     }
     addToCart(id, amt){
@@ -178,6 +195,11 @@ export default class Main extends React.Component{
                 }) 
             }
         }
+    }
+    forceUpdate(){
+        this.ws.send(JSON.stringify({
+            'type': 'forceUpdate'
+        }))
     }
     removeFromCart(id, amt){
         this.setState({
@@ -379,11 +401,12 @@ export default class Main extends React.Component{
         return(
             <React.Fragment>
                 <Router>
-                    <Navigation brand={this.state.settings.name} role={this.state.isMaster} />
+                    <Navigation brand={this.state.settings.name} role={this.state.isMaster} connected={this.state.connected} />
                     {this.state.loading ? 
                         <Loader waitingFor={this.state.loading} /> 
                         :  
                         <React.Fragment>
+                            <button onClick={this.forceUpdate}>Force update</button>
                             <Route 
                                 path="/register"
                                 render={() => <Register products={this.state.products}

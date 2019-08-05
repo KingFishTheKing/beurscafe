@@ -26,8 +26,9 @@ export default class Navigation extends React.Component{
                             </Link>
                         </li>
                     </ul>
-                    <div className="navbar-nav">
-                        Running as&nbsp;<span className="text-primary">{this.props.role ? 'Master' : 'Slave'}</span>
+                    <div className="navbar-nav f-flex flex-column">
+                        <span>Running as <span className="font-weight-bold">{this.props.role ? 'Master' : 'Slave'}</span></span>
+                        <span className="text-secondary font-weight-light">Status: {this.props.connected ? <span className="text-success">Connected</span> :  <span className="text-error">Disconnected</span> }</span>
                     </div>
                 </nav>
             </React.Fragment>
