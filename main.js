@@ -44,11 +44,34 @@ const removeSocket = (socket) => {
 const updateProducts = async () => {
     //Calcuate history
     return new Promise((resolve, reject) => {
-        resolve(JSON.stringify({
-            type: 'update',
-            data: null
-        }))
-    }).catch(e => { return e })
+        let dist = [];
+        db.history.find({time: {$gte: lastUpdate}}, (err, docs) => {
+            Object.entries([...new Set(docs.map(x => x.product))].reduce((result, item) => {
+                return {
+                    ...result,
+                    [item]: 0
+                }
+            }, {})).forEach(value => {
+                dist.push({ [value[0]] : docs.filter((hist) => {
+                    return hist.product === value[0]
+                }).reduce((prev, current) => {
+                    return prev + current.quantity
+                }, 0)})
+            })
+            //Calculate new prices for all;
+            let total = dist.reduce((prev, current) => {
+                return prev + Object.values(current)[0]
+            }, 0)
+            dist.forEach(product => {
+                console.log(((100 / total) * Object.values(product)).toFixed(0))
+            })
+            //lastUpdate = Date.now();
+            resolve(JSON.stringify({
+                type: 'update',
+                data: dist
+            }));
+        })
+    }).catch(e => {})
 }
 
 //Websocket server
@@ -72,6 +95,9 @@ app.ws('/', (ws, req) => {
     ws.on('message', msg => {
         msg = JSON.parse(msg)
         switch(msg.type){
+            case 'forceUpdate':
+                updateProducts().then(data => console.log(data))
+                break;
             case 'connect':
                 connections.push(ws);
                 let resp = {'type': 'master', 'data': false}
