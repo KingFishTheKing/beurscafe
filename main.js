@@ -123,8 +123,19 @@ app.ws('/', (ws, req) => {
                             })
                         }  
                     ))
-                    .then((done, err) => {
-                        console.log(`Errors: ${err}, done: ${done}`)
+                    .then((done) => {
+                        //Send stock updates back
+                        ws.send(JSON.stringify({
+                            'type': 'checkoutComplete',
+                            'data': done
+                        }));
+                        const response = JSON.stringify({
+                            'type': 'updateStock',
+                            'data': success
+                        })
+                        connections.forEach(socket => {
+                            socket.send(response)
+                        })
                     })
                     .catch( e => console.log(`Catch ${e}`))
                 break;

@@ -51,25 +51,40 @@ export default class Main extends React.Component{
             msg = JSON.parse(msg.data)
             switch(msg.type){
                 case 'master':
-                    if (!!msg.data){
-                        this.setState({
-                            isMaster: true
-                        });
-                        localStorage.setItem('app_id', msg.data)
-                    }
+                        if (!!msg.data){
+                            this.setState({
+                                isMaster: true
+                            });
+                            localStorage.setItem('app_id', msg.data)
+                        }
                     break;
                 case 'updateConfig':
-                    this.setState({
-                        settings: msg.data,
-                        configSaved: false
-                    });
+                        this.setState({
+                            settings: msg.data,
+                            configSaved: false
+                        });
                     break;
                 case 'updateStock':
-                    console.log(msg.data);
-                    /*this.setState(prevState => ({
-                        products: msg.data,
-                    }));*/
-                    this.updateStatus('Stock updated', 'bg-success text-white');
+                        this.setState({
+                            products: this.state.products.map(product => {
+                                let index = msg.data.findIndex((dataProduct) => {
+                                    return dataProduct.for === product.id 
+                                });
+                                if (index !== -1) {
+                                    product.currentStock = msg.data[index].stock
+                                }
+                                return product;
+                            })
+                        }, () => {
+                            this.updateStatus('Stock updated', 'bg-success text-white');
+                        });
+                    break;
+                case 'checkoutComplete':
+                        this.setState({
+                            cart: []
+                        }, () => {
+                            this.emptyCart();
+                        })
                     break;
                 case 'updateProduct':
                         this.setState(prevState => ({
@@ -81,8 +96,9 @@ export default class Main extends React.Component{
                                     }
                                     return prod
                                 })
-                        }));
-                        this.updateStatus('Product updated', 'bg-success text-white');
+                        }), () => {
+                            this.updateStatus('Product updated', 'bg-success text-white');
+                        });
                     break;
                 case 'newProduct':
                         this.setState(prevState => ({
@@ -90,15 +106,18 @@ export default class Main extends React.Component{
                                 ...prevState.products,
                                 msg.data
                             ]
-                        }));
-                        this.updateStatus('New product added', 'bg-success text-white');
+                        }), () => {
+                            this.updateStatus('New product added', 'bg-success text-white');
+                        });
                     break;
                 case 'removeProduct':
                         this.setState(prevState => ({
                             products: prevState.products.filter(prod => {
                                 return prod.id !== msg.data
                             })
-                        }))
+                        }), () => {
+                            this.updateStatus(`${msg.data} removed`, 'bg-warning text-white');
+                        })
                     break;
                 default:
                     break;
