@@ -46,36 +46,59 @@ const updateProducts = async () => {
     return new Promise((resolve, reject) => {
         let dist = [];
         db.history.find({time: {$gte: lastUpdate}}, (err, docs) => {
-            Object.entries([...new Set(docs.map(x => x.product))].reduce((result, item) => {
-                return {
-                    ...result,
-                    [item]: 0
-                }
-            }, {})).forEach(value => {
-                dist.push({ [value[0]] : docs.filter((hist) => {
-                    return hist.product === value[0]
-                }).reduce((prev, current) => {
-                    return prev + current.quantity
-                }, 0)})
-            })
-            //Calculate new prices for all;
-            let total = dist.reduce((prev, current) => {
-                return prev + Object.values(current)[0]
-            }, 0)
-            dist.forEach(product => {
-                console.log(((100 / total) * Object.values(product)).toFixed(0))
-            })
-            //lastUpdate = Date.now();
-            resolve(JSON.stringify({
-                type: 'update',
-                data: dist
-            }));
+            if (err !== null) reject(false)
+            else {
+                Object.entries([...new Set(docs.map(x => x.product))].reduce((result, item) => {
+                    return {
+                        ...result,
+                        [item]: 0
+                    }
+                }, {})).forEach(value => {
+                    dist.push({ [value[0]] : docs.filter((hist) => {
+                        return hist.product === value[0]
+                    }).reduce((prev, current) => {
+                        return prev + current.quantity
+                    }, 0)})
+                })
+                //Calculate new prices for all;
+                db.products.find({}, (err, products) => {
+                    if (err) reject(false)
+                    else{
+                        let total = dist.reduce((prev, current) => {
+                            return prev + Object.values(current)[0]
+                        }, 0)
+                        let distNames = dist.map((current) => {
+                            return Object.keys(current)[0]
+                        }) 
+                        dist.forEach(product => {
+                            //console.log(Object.entries(product) /*((100 / total) * Object.entries(product[1])).toFixed(0)*/)
+                        })
+                        products = products.map(product => {
+                            if(distNames.includes(product.id)){
+                                product.currentPrice = product.minPrice;
+
+                                return product
+                            }
+                            else {
+                                return product
+                            }
+                        })
+                        console.log(products);
+                        //lastUpdate = Date.now();
+                        resolve(JSON.stringify({
+                            type: 'update',
+                            data: null
+                        }));
+                    }
+                })
+            }
         })
     }).catch(e => {})
 }
 
 //Websocket server
 app.ws('/', (ws, req) => {
+    console.log('connected')
     if (!started && config.refreshInterval !== 0){
         timer = setInterval(()=> {
             updateProducts().then(
@@ -381,10 +404,12 @@ const loadConfig = () => {
     db.settings = new nedb(`./server/db/${process.env.APP_ID}/settings`);
     db.products = new nedb(`./server/db/${process.env.APP_ID}/products`);
     db.history = new nedb(`./server/db/${process.env.APP_ID}/history`);
+    db.updateHistory = new nedb(`./server/db/${process.env.APP_ID}/updateHistory`)
     return Promise.all([
         db.settings.loadDatabase((err) => { !err ? Promise.resolve(true) : Promise.reject(false)  }),
         db.products.loadDatabase((err) => { !err ? Promise.resolve(true) : Promise.reject(false)  }),
         db.history.loadDatabase((err) => { !err ? Promise.resolve(true) : Promise.reject(false)  }),
+        db.updateHistory.loadDatabase((err) => { !err ? Promise.resolve(true) : Promise.reject(false)  }),
     ]).then((done, err) => { 
         if (err) console.log('Failure to load one or more databases')    
         return db 
@@ -418,9 +443,9 @@ startup()
         dbc.history.find({}, (err, h) => {
             history = !err && h.length > 0 ? h : []
         });
-        connections = []
         console.log('Config applied');
         server = app.listen(process.env.PORT, () => {
+            connections = [];
             console.log(`Listening at port ${process.env.PORT}`);
         });
     }).catch(err => console.log(err))

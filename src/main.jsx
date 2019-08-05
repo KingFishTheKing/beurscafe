@@ -19,7 +19,7 @@ export default class Main extends React.Component{
             statusbar: null,
             configSaved: false,
             isMaster: false,
-            conntected: false
+            connected: false
         }
         this.URL = null;
         this.ws = null;
@@ -34,6 +34,7 @@ export default class Main extends React.Component{
         this.removeFromCart = this.removeFromCart.bind(this)
         this.emptyCart = this.emptyCart.bind(this);
         this.checkoutCart = this.checkoutCart.bind(this);
+        this.connect = this.connect.bind(this);
 
         this.forceUpdate = this.forceUpdate.bind(this);
     }
@@ -58,7 +59,7 @@ export default class Main extends React.Component{
                 })
             }
         }
-        this.ws.addEventListener('message', (msg) => {
+        this.ws.onmessage = (msg) => {
             msg = JSON.parse(msg.data)
             switch(msg.type){
                 case 'master':
@@ -133,22 +134,14 @@ export default class Main extends React.Component{
                 default:
                     break;
             }
-        });
-        this.ws.addEventListener('close',  () => {
+        };
+        this.ws.onclose = this.ws.onerror = () => {
             this.setState({
                 connected: false
             })
             this.updateStatus(`Disconnected :'( Hold on! Trying to reconnect...`, 'bg-danger text-white', false)
             setTimeout(() => {
-                this.connect(server);
-            }, 500)
-        })
-        this.ws.onerror = () => {
-            this.setState({
-                connected: false
-            })
-            this.updateStatus(`Disconnected :'( Hold on! Trying to reconnect...`, 'bg-danger text-white', false)
-            setTimeout(() => {
+                this.ws = null;
                 this.connect(server);
             }, 500)
         }
