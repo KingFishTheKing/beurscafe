@@ -30,6 +30,10 @@ const btoa = (binary) => {
 const atob = (base64) => {
     return Buffer.from(base64, 'base64').toString('binary') //polyfill vanilla for decoding base64
 }
+function round(n, scale, decimals=1){
+    //Round and fix decimal function
+    return Number((Math.round(Number(n) / scale) * scale).toFixed(decimals));
+}
 const removeSocket = (socket) => {
     connections = connections.filter(conn => {
         return (conn === socket) ? false : true
@@ -65,21 +69,32 @@ const updateProducts = async () => {
                     if (err) reject(false)
                     else{
                         let total = dist.reduce((prev, current) => {
+                            //Calculate total sold products
                             return prev + Object.values(current)[0]
-                        }, 0)
+                        }, 0);
                         let distNames = dist.map((current) => {
+                            //Create array with product id's
                             return Object.keys(current)[0]
-                        }) 
-                        dist.forEach(product => {
-                            //console.log(Object.entries(product) /*((100 / total) * Object.entries(product[1])).toFixed(0)*/)
+                        });
+                        products.sort((a, b) => {
+                            //Sort by % stock left
+                            return (a.currentStock*100/a.stock) < (b.currentStock*100/a.stock)
                         })
-                        products = products.map(product => {
+                        let index = 0;
+                        const median = Math.floor((products.length - distNames.length) / 2)
+                        products = products.map((product) => {
+                            //Loop all products to calculate new prices
                             if(distNames.includes(product.id)){
-                                product.currentPrice = product.minPrice;
-
+                                //If product is in distNames, means product has sold and price should go up, Calculate how much % of sold products were this product and based on this add %-amount of increase to the current price, taking into account increments and decimal places set in settings, then compare to make sure it doesn't exceed maximum price
+                                product.currentPrice = Math.min(round(Number(product.currentPrice) + Number(product.currentPrice) * (((100 / total) * Object.values(dist.find((v) => {return Object.keys(v)[0] === product.id}))[0]).toFixed(0) / 100), config.increments, config.round), product.maxPrice);
                                 return product
                             }
                             else {
+                                //If product is in the upper half of %-stock remaining, decrease price, else leave unattended
+                                if (index >= median){
+                                    product.currentPrice = product.minPrice
+                                }
+                                index++;  
                                 return product
                             }
                         })
