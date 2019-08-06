@@ -35,31 +35,28 @@ export default class Settings extends React.Component{
                     <div className="form-row">
                         <div className="form-group col">
                             <label htmlFor="increments">
-                                Increment/decrease price by:
+                                Round price to:
                             </label>
                             <input  type="number" 
                                     className="form-control" 
                                     name="increments" 
                                     placeholder={this.state.increments}  
                                     onChange={e => this.setState({increments: e.target.value})} 
-                                    min="0.05" 
+                                    min="0.01" 
                                     max="0.50" 
-                                    step="0.05" />
+                                    step="0.01" />
                         </div>
                         <div className="form-group col">
                             <label htmlFor="round">
-                                Round price to nearest:
+                                Decimal places:
                             </label>
                             <select name="round" 
                                     className="form-control" 
                                     value={this.state.round}
                                     onChange={e => this.setState({round: e.target.value})} >
                                 <option value="0">0</option>
-                                <option value="0.01">0.01</option>
-                                <option value="0.05">0.05</option>
-                                <option value="0.1">0.1</option>
-                                <option value="0.2">0.2</option>
-                                <option value="0.5">0.5</option>
+                                <option value="1">0.1</option>
+                                <option value="2">0.01</option>
                             </select>
                     </div> 
                     <div className="form-group col">
