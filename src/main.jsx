@@ -70,6 +70,11 @@ export default class Main extends React.Component{
                             localStorage.setItem('app_id', msg.data)
                         }
                     break;
+                case 'update':
+                        this.setState({
+                            products: msg.data
+                        })
+                    break;
                 case 'updateConfig':
                         this.setState({
                             settings: msg.data,

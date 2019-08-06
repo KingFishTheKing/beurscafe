@@ -66,7 +66,7 @@ const updateProducts = async () => {
                 })
                 //Calculate new prices for all;
                 db.products.find({}, (err, products) => {
-                    if (err) reject(false)
+                    if (err !== null) reject(false)
                     else{
                         let total = dist.reduce((prev, current) => {
                             //Calculate total sold products
@@ -81,34 +81,49 @@ const updateProducts = async () => {
                             return (a.currentStock*100/a.stock) < (b.currentStock*100/a.stock)
                         })
                         let index = 0;
-                        const median = Math.floor((products.length - distNames.length) / 2)
+                        const median = Math.round((products.length - distNames.length) / 2)
                         products = products.map((product) => {
                             //Loop all products to calculate new prices
                             if(distNames.includes(product.id)){
                                 //If product is in distNames, means product has sold and price should go up, Calculate how much % of sold products were this product and based on this add %-amount of increase to the current price, taking into account increments and decimal places set in settings, then compare to make sure it doesn't exceed maximum price
-                                product.currentPrice = Math.min(round(Number(product.currentPrice) + Number(product.currentPrice) * (((100 / total) * Object.values(dist.find((v) => {return Object.keys(v)[0] === product.id}))[0]).toFixed(0) / 100), config.increments, config.round), product.maxPrice);
+                                product.currentPrice = Number(Math.min(round(Number(product.currentPrice) + Number(product.currentPrice) * (((100 / total) * Object.values(dist.find((v) => {return Object.keys(v)[0] === product.id}))[0]).toFixed(0) / 100), config.increments, config.round), product.maxPrice));
                                 return product
                             }
                             else {
                                 //If product is in the upper half of %-stock remaining, decrease price, else leave unattended
                                 if (index >= median){
-                                    product.currentPrice = product.minPrice
+                                    product.currentPrice = Number(Math.max(
+                                        product.minPrice, 
+                                        round(product.currentPrice * ((100 - ((product.currentStock*100/product.stock) / (5 * index))) / 100), config.increments, config.round) 
+                                        //multiply current price by %stock left divided by 5 times index (further down means more decrease)
+                                    ))
                                 }
                                 index++;  
                                 return product
                             }
-                        })
-                        console.log(products);
-                        //lastUpdate = Date.now();
-                        resolve(JSON.stringify({
-                            type: 'update',
-                            data: null
-                        }));
+                        });
+                        Promise.all(
+                            products.map(product => {
+                                return new Promise((done, notdone) => {
+                                    db.products.update({'id': product.id}, {$set:{ 'currentPrice': product.currentPrice }}, (err, repl) => {
+                                        repl === 1 ? done(product) : notdone(false)
+                                    })
+                                })
+                            })
+                        ).then(
+                            prod => {
+                                lastUpdate = Date.now()
+                                resolve(JSON.stringify({
+                                    type: 'update',
+                                    data: prod.sort((a,b) => { return a.name > b.name})
+                                }))
+                            }
+                        ).catch(()=>{})
                     }
                 })
             }
         })
-    }).catch(e => {})
+    }).catch(() => {})
 }
 
 //Websocket server
@@ -134,7 +149,11 @@ app.ws('/', (ws, req) => {
         msg = JSON.parse(msg)
         switch(msg.type){
             case 'forceUpdate':
-                updateProducts().then(data => console.log(data))
+                updateProducts().then(data => 
+                    connections.forEach(socket => {
+                        socket.send(data)
+                    })
+                )
                 break;
             case 'connect':
                 connections.push(ws);
@@ -258,7 +277,7 @@ app.get('/api/settings/', cors(), (req, res) => {
 app.get('/api/products', cors(), (req, res) => {
     db.products.find({}, (err, products) => {
         if (err) res.status(404).send('something went wrong');
-        else res.status(200).json(products)
+        else res.status(200).json(products.sort((a,b ) => { return a.name > b.name}))
     })
 });
 
