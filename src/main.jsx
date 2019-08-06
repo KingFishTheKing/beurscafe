@@ -42,7 +42,7 @@ export default class Main extends React.Component{
     //Helper functions
     connect(server){
         this.ws = new WebSocket(server);
-        this.ws.onopen = (e) => {
+        this.ws.addEventListener('open', (e) => {
             if (this.ws.readyState === 1){
                 this.ws.send(JSON.stringify({
                     'type': 'connect',
@@ -58,8 +58,8 @@ export default class Main extends React.Component{
                     connected: false
                 })
             }
-        }
-        this.ws.onmessage = (msg) => {
+        })
+        this.ws.addEventListener('message', (msg) => {
             msg = JSON.parse(msg.data)
             switch(msg.type){
                 case 'master':
@@ -134,17 +134,19 @@ export default class Main extends React.Component{
                 default:
                     break;
             }
-        };
-        this.ws.onclose = this.ws.onerror = () => {
+        });
+        this.ws.addEventListener('error', () => {
+            this.ws.close()
+        })
+        this.ws.addEventListener('close', () => {
             this.setState({
                 connected: false
             })
             this.updateStatus(`Disconnected :'( Hold on! Trying to reconnect...`, 'bg-danger text-white', false)
             setTimeout(() => {
-                this.ws = null;
                 this.connect(server);
             }, 500)
-        }
+        })
     }
     addToCart(id, amt){
         let product = this.state.products.find(function(p){return p.id === id})
