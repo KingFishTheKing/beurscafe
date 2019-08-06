@@ -234,19 +234,31 @@ app.ws('/', (ws, req) => {
         removeSocket(ws);
     });
 });
+app.ws('/view', (ws, req) => {
+    console.log('client connected');
+    ws.on('message', msg => {
+        msg = JSON.parse(msg);
+        switch(msg.type){
+            case 'connect':
+                connections.push(ws);
+                ws.send('welcome')
+                break;
+            default:
+                break;
+        }
+        
+    })
+})
 
-//Static resources
-app.use(express.static(path.join(__dirname, 'build')));
+//Static servers
+app.use('/', express.static(path.join(__dirname, 'build')));
+app.use('/view', express.static(path.join(__dirname, 'view')))
 app.use('/static', express.static(path.join(__dirname, 'static')));
 
 app.get('/view', (req, res) => {
     res.clearCookie('app_id').status(200).end();
 });
 
-//Main server
-app.get('/', (req, res) => {
-    res.status(200).sendFile(path.join(__dirname, 'build'));
-});
 
 //Image server
 app.get('/image/:name', (req, res) => {
@@ -430,7 +442,7 @@ app.post('/restartServer', cors(), (req, res) => {
 
 //Catchall
 app.get('*', (req, res) => {
-    res.status(308).redirect('/');
+    res.status(308).redirect('/view');
 });
 
 //startup
