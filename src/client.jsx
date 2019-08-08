@@ -9,7 +9,7 @@ export default class Viewer extends React.Component{
     constructor(){
         super();
         this.state={
-            labels: ['1','2'],
+            labels: [],
             series: [],
             options: {
                 class: '.ct-chart d-flex flex-column',
@@ -58,16 +58,20 @@ export default class Viewer extends React.Component{
             data => data.json()
         ).then(
             json => {
-                this.setState({
+                this.setState((prevState) => ({
+                    labels: [1, 2],
                     series: json.map(product => {
-                                return {
-                                    'name': product.name,
-                                    'data':[{
-                                        'value': product.currentStock
-                                    }]
-                                }
-                            })
-                }, () => {console.log(this.state)})
+                        return {
+                                'name': product.name,
+                                'data': [product.stock, product.currentStock]
+                            }
+                    }),
+                    options: {
+                        ...prevState.options,
+                        high: Math.max(json.map((product => { return product.currentStock }))),
+                        low: Math.min(json.map((product => { return product.currentStock })))
+                    }
+                }), () => {console.log(this.state)})
             }
         )
         .finally(
