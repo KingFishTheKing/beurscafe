@@ -1,0 +1,1 @@
+{"version":3,"sources":["Loader.css"],"names":[],"mappings":"AAAA,4BACI,GAAO,8BAAuB,CAAvB,sBAAyB,CAChC,GAAK,+BAAyB,CAAzB,uBAA2B,CACpC,CAHA,oBACI,GAAO,8BAAuB,CAAvB,sBAAyB,CAChC,GAAK,+BAAyB,CAAzB,uBAA2B,CACpC","file":"main.5836d762.chunk.css","sourcesContent":["@keyframes rotation{\r\n    from { transform: rotate(0deg); }\r\n    to { transform: rotate(360deg); }\r\n}"]}

@@ -7,6 +7,7 @@ import Settings from './blocks/Settings';
 import Products from './blocks/Products';
 import Loader from './blocks/Loader';
 import Statusbar from './Statusbar';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 export default class Main extends React.Component{
     constructor(props){

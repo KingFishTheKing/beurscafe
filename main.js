@@ -44,7 +44,6 @@ const removeSocket = (socket) => {
         masterSocket = null;
     }
 }
-
 const updateProducts = async () => {
     //Calcuate history
     return new Promise((resolve, reject) => {
@@ -252,13 +251,7 @@ app.ws('/view', (ws, req) => {
 
 //Static servers
 app.use('/', express.static(path.join(__dirname, 'build')));
-app.use('/view', express.static(path.join(__dirname, 'view')))
 app.use('/static', express.static(path.join(__dirname, 'static')));
-
-app.get('/view', (req, res) => {
-    res.clearCookie('app_id').status(200).end();
-});
-
 
 //Image server
 app.get('/image/:name', (req, res) => {
@@ -441,9 +434,9 @@ app.post('/restartServer', cors(), (req, res) => {
 });
 
 //Catchall
-app.get('*', (req, res) => {
+/*app.get('*', (req, res) => {
     res.status(308).redirect('/view');
-});
+});*/
 
 //startup
 const loadConfig = () => {

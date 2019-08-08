@@ -23,7 +23,6 @@
   },
   "entry": "main.js",
   "scripts": {
-    "dev": "npm run start & npm run server",
     "server": "nodemon main.js",
     "start": "set PORT=3001 && react-scripts start",
     "build": "react-scripts build",

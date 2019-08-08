@@ -1,68 +1,17 @@
 import React from 'react';
 import ChartistGraph from 'react-chartist';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import 'chartist/dist/chartist.min.css';
-import './Settings.css';
+import './blocks/Settings.css';
 const legend = require('chartist-plugin-legend');
 
 export default class Viewer extends React.Component{
-
-    render(){
-        return(
-            <ChartistGraph data={{
-                labels: ['1','2','3','4','5','6','7'],
-                series: [
-                    {
-                        name: 'Pintje',
-                        data: [
-                                {"value":0 },
-                                {"value":2 },
-                                {"value":4 },
-                                {"value":4 },
-                                {"value":8 },
-                                {"value":3 },
-                                {"value":5 }
-                            ]
-                    },
-                    {
-                        name: 'Kriek',
-                        data: [
-                                {"value":0 },
-                                {"value":2 },
-                                {"value":1 },
-                                {"value":2 },
-                                {"value":3 },
-                                {"value":3 },
-                                {"value":1 }
-                            ]
-                    },
-                    {
-                        name: 'Duvel',
-                        data: [
-                                {"value":1 },
-                                {"value":2 },
-                                {"value":2 },
-                                {"value":2 },
-                                {"value":5 },
-                                {"value":4 },
-                                {"value":3 }
-                            ]
-                    },
-                    {
-                        name: 'Triple Karmeliet',
-                        data: [
-                                {"value":1 },
-                                {"value":2 },
-                                {"value":3 },
-                                {"value":4 },
-                                {"value":5 },
-                                {"value":6 },
-                                {"value":7 }
-                            ]
-                    }
-                ]
-            }} 
-            key={Math.random()}
-            options={{
+    constructor(){
+        super();
+        this.state={
+            labels: ['1','2'],
+            series: [],
+            options: {
                 class: '.ct-chart d-flex flex-column',
                 high: 10,
                 low: 0,
@@ -79,8 +28,60 @@ export default class Viewer extends React.Component{
                 plugins: [
                     legend()
                 ]
+            },
+            type: "Line"
+        }
+        this.ws = null;
+
+        this.connect = this.connect.bind(this);
+    }
+    connect(server){
+        this.ws = new WebSocket(server);
+        this.ws.addEventListener('message', (msg) => {
+            console.log(msg)
+        })
+        this.ws.onerror = () => {
+            this.ws.close();
+        }
+        this.ws.onclose = () => {
+            setTimeout(() => {
+                this.connect(server);
+            }, 500)
+        }
+    }
+    componentWillMount(){
+        document.title = "Viewer"
+    }
+    componentDidMount(){
+        fetch('http://localhost:3000/api/products')
+        .then(
+            data => data.json()
+        ).then(
+            json => {
+                this.setState({
+                    series: json.map(product => {
+                                return {
+                                    'name': product.name,
+                                    'data':[{
+                                        'value': product.currentStock
+                                    }]
+                                }
+                            })
+                }, () => {console.log(this.state)})
+            }
+        )
+        .finally(
+            this.connect('ws://localhost:3000/view')
+        )
+    }
+    render(){
+        return(
+            <ChartistGraph data={{
+                labels: this.state.labels,
+                series: this.state.series
             }} 
-            type="Line" />
+            options={this.state.options} 
+            type={this.state.type} />
         )
     }
 }
